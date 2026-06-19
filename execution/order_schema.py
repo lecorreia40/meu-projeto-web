@@ -62,3 +62,23 @@ class Order(BaseModel):
     mode: ExecutionMode = ExecutionMode.PAPER
     status: OrderStatus = OrderStatus.NEW
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class Fill(BaseModel):
+    """The result of a (paper) execution."""
+
+    model_config = ConfigDict(use_enum_values=False)
+
+    order_id: str = Field(..., min_length=1)
+    signal_id: str = Field(..., min_length=1)
+    symbol: str = Field(..., min_length=1, max_length=10)
+    side: OrderSide
+    quantity: int = Field(..., gt=0)
+    fill_price: float = Field(..., gt=0)
+    commission: float = Field(default=0.0, ge=0)
+    mode: ExecutionMode = ExecutionMode.PAPER
+    filled_at: datetime = Field(default_factory=utcnow)
+
+    @property
+    def notional(self) -> float:
+        return self.quantity * self.fill_price

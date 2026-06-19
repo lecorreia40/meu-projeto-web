@@ -143,3 +143,21 @@ vite.config.ts.timestamp-*
 
 # Local audit log output
 logs/
+
+# Generated pipeline artifacts
+artifacts/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/

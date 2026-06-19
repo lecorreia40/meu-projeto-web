@@ -28,6 +28,24 @@ class ValidationError(MesaError):
     """A schema or business-rule validation failed."""
 
 
+class MemoIncompleteError(ValidationError):
+    """A memo is missing required fields (incl. skeptic_view) or is not COMPLETE,
+    so it cannot be converted into a trading signal."""
+
+    def __init__(self, message: str, missing: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.missing: list[str] = missing or []
+
+
+class SignalIncompleteError(ValidationError):
+    """A signal is missing fields required for risk review (stop_loss,
+    take_profit, max_position_pct, max_risk_pct, time_horizon)."""
+
+    def __init__(self, message: str, missing: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.missing: list[str] = missing or []
+
+
 class RiskBlockedError(MesaError):
     """The deterministic risk engine blocked an action.
 
