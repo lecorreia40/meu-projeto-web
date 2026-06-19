@@ -1,0 +1,53 @@
+# Docker Compose for Mesa Proprietária com IA.
+#
+# Sprint 1 NOTE: the MVP runs entirely on in-memory repositories and does NOT
+# require any of these services. They are provided for Phase 1+ when the
+# PostgreSQL/TimescaleDB backend is enabled (REPOSITORY_BACKEND=postgres).
+#
+# There is intentionally NO broker service here: live trading is out of scope
+# and disabled by default.
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_DB: mesa
+      POSTGRES_USER: mesa
+      # Provide POSTGRES_PASSWORD via your shell environment or a local .env.
+      # Never commit real credentials.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_local_only}
+    ports:
+      - "5432:5432"
+    volumes:
+      - mesa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mesa -d mesa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      LIVE_TRADING_ENABLED: "false"
+      EXECUTION_MODE: "paper"
+      REPOSITORY_BACKEND: "memory"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  mesa_pgdata:
