@@ -56,6 +56,14 @@ def main() -> None:
             f"commission ${ex.fill.commission:.2f})"
         )
 
+    snap = pipeline.portfolio_snapshot()
+    print("\nPAPER PORTFOLIO:")
+    print(
+        f"  equity ${snap.equity:,.0f} | cash ${snap.cash:,.0f} | "
+        f"positions {snap.open_positions} | exposure {snap.gross_exposure_pct:.1f}% | "
+        f"unrealized PnL ${snap.unrealized_pnl:,.2f} | commissions ${snap.commissions_paid:.2f}"
+    )
+
     print(f"\nArtifacts written: {artifacts}")
     print("LIVE TRADING: disabled (paper simulation only).")
 

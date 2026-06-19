@@ -27,6 +27,7 @@ from execution.paper_trading import PaperBroker
 from features.pipeline import FeatureSet, build_feature_set
 from memos.memo_repository import MemoRepository
 from memos.memo_schema import InvestmentMemo, MemoStatus
+from portfolio.paper_portfolio import PaperPortfolio, PortfolioSnapshot
 from risk.risk_engine import RiskDecision, RiskEngine
 from risk.rules import RiskContext
 from signals.signal_engine import SignalEngine
@@ -97,13 +98,20 @@ class TradingDeskPipeline:
         self.memo_repo = memo_repo or MemoRepository()
         self.signal_repo = signal_repo or SignalRepository()
         self.logger = logger or get_logger("pipeline")
+        # Paper portfolio + latest marks make the risk engine portfolio-aware
+        # (open positions, gross exposure) across the cycle.
+        self.portfolio = PaperPortfolio(starting_cash=account_equity)
+        self._marks: dict[str, float] = {}
 
     def _bars(self, symbol: str) -> list[MarketBar]:
         return self.feed.fetch_bars(symbol, days=self.days)
 
     def _context(self, features: FeatureSet, backtest: BacktestResult) -> RiskContext:
+        snapshot = self.portfolio.snapshot(self._marks)
         return RiskContext(
             account_equity=self.account_equity,
+            open_positions=snapshot.open_positions,
+            current_exposure_pct=snapshot.gross_exposure_pct,
             price_history_bars=features.history_len,
             liquidity_score=features.liquidity if features.liquidity is not None else 0.0,
             data_quality_ok=features.is_complete,
@@ -113,9 +121,13 @@ class TradingDeskPipeline:
             live_trading_enabled=False,
         )
 
+    def portfolio_snapshot(self) -> PortfolioSnapshot:
+        return self.portfolio.snapshot(self._marks)
+
     def run_symbol(self, symbol: str) -> CycleRecord:
         bars = self._bars(symbol)
         features = build_feature_set(symbol, bars)
+        self._marks[symbol] = features.last_price
 
         # 1) Agents -> memo
         swarm = self.orchestrator.run(features)
@@ -172,8 +184,9 @@ class TradingDeskPipeline:
                 notes="risk engine blocked: " + ", ".join(decision.reason_values),
             )
 
-        # 5) Paper order simulation
+        # 5) Paper order simulation -> book into the paper portfolio
         execution = self.order_manager.execute(marked, decision)
+        self.portfolio.apply_fill(execution.fill)
         self.logger.info(
             EventType.ORDER_FILLED, entity_id=execution.order.order_id,
             symbol=symbol, qty=execution.fill.quantity, price=execution.fill.fill_price,
@@ -201,4 +214,10 @@ class TradingDeskPipeline:
         with signal_path.open("w", encoding="utf-8") as fh:
             for signal in self.signal_repo.list():
                 fh.write(signal.model_dump_json() + "\n")
-        return {"memos": str(memo_path), "signals": str(signal_path)}
+        portfolio_path = out / "portfolio.json"
+        portfolio_path.write_text(self.portfolio_snapshot().model_dump_json(indent=2))
+        return {
+            "memos": str(memo_path),
+            "signals": str(signal_path),
+            "portfolio": str(portfolio_path),
+        }

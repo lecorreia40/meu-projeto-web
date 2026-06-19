@@ -22,7 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import streamlit as st  # noqa: E402
 
 from dashboard.pages import memos as memos_page  # noqa: E402
+from dashboard.pages import orders as orders_page  # noqa: E402
 from dashboard.pages import overview as overview_page  # noqa: E402
+from dashboard.pages import risk as risk_page  # noqa: E402
 from dashboard.pages import signals as signals_page  # noqa: E402
 
 ARTIFACTS = Path("./artifacts")
@@ -55,17 +57,23 @@ def main() -> None:
             with st.spinner("Running data → agents → memo → signal → backtest → risk → paper…"):
                 _run_pipeline()
             st.success("Cycle complete. Artifacts refreshed.")
-        page = st.radio("View", ["Overview", "Memos", "Signals"])
+        page = st.radio("View", ["Overview", "Memos", "Signals", "Risk", "Portfolio"])
 
     memos = _load_jsonl(ARTIFACTS / "memos.jsonl")
     signals = _load_jsonl(ARTIFACTS / "signals.jsonl")
+    portfolio_path = ARTIFACTS / "portfolio.json"
+    portfolio = json.loads(portfolio_path.read_text()) if portfolio_path.exists() else None
 
     if page == "Overview":
         overview_page.render(memos, signals)
     elif page == "Memos":
         memos_page.render(memos)
-    else:
+    elif page == "Signals":
         signals_page.render(signals)
+    elif page == "Risk":
+        risk_page.render(signals)
+    else:
+        orders_page.render(portfolio)
 
 
 if __name__ == "__main__":

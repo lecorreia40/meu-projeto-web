@@ -161,3 +161,8 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Local SQLite datastore
+data_store/
+*.db
+*.sqlite3

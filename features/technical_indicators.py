@@ -48,24 +48,29 @@ def sma_series(prices: list[float], window: int) -> list[float]:
 
 
 def rsi(prices: list[float], period: int = 14) -> float | None:
-    """Relative Strength Index — PLACEHOLDER.
+    """Relative Strength Index using Wilder's smoothing.
 
-    Uses a simple average of gains/losses (not Wilder's smoothing). Returns a
-    value in [0, 100], or ``None`` if there is insufficient history. To be
-    replaced with a proper implementation in Phase 2.
+    Seeds the average gain/loss with a simple mean over the first ``period``
+    changes, then applies Wilder's recursive smoothing across the remaining
+    series. Returns a value in [0, 100], or ``None`` if there is insufficient
+    history.
     """
     if period <= 0 or len(prices) < period + 1:
         return None
-    gains = 0.0
-    losses = 0.0
-    for prev, cur in zip(prices[-period - 1 : -1], prices[-period:]):
-        change = cur - prev
-        if change >= 0:
-            gains += change
-        else:
-            losses -= change
-    avg_gain = gains / period
-    avg_loss = losses / period
+
+    changes = [cur - prev for prev, cur in zip(prices, prices[1:])]
+    gains = [max(c, 0.0) for c in changes]
+    losses = [max(-c, 0.0) for c in changes]
+
+    # Wilder seed: simple average of the first `period` values.
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    # Recursive smoothing over the rest of the series.
+    for g, l in zip(gains[period:], losses[period:]):
+        avg_gain = (avg_gain * (period - 1) + g) / period
+        avg_loss = (avg_loss * (period - 1) + l) / period
+
     if avg_loss == 0:
         return 100.0
     rs = avg_gain / avg_loss
@@ -73,19 +78,27 @@ def rsi(prices: list[float], period: int = 14) -> float | None:
 
 
 def atr(bars: list[MarketBar], period: int = 14) -> float | None:
-    """Average True Range — PLACEHOLDER.
+    """Average True Range using Wilder's smoothing.
 
-    Simple mean of the true range over the last ``period`` bars (no Wilder
-    smoothing). Returns ``None`` if there is insufficient history.
+    Seeds with the simple mean of the first ``period`` true ranges, then applies
+    Wilder's recursive smoothing. Returns ``None`` if there is insufficient
+    history.
     """
     if period <= 0 or len(bars) < period + 1:
         return None
+
     true_ranges: list[float] = []
-    for prev, cur in zip(bars[-period - 1 : -1], bars[-period:]):
-        tr = max(
-            cur.high - cur.low,
-            abs(cur.high - prev.close),
-            abs(cur.low - prev.close),
+    for prev, cur in zip(bars, bars[1:]):
+        true_ranges.append(
+            max(
+                cur.high - cur.low,
+                abs(cur.high - prev.close),
+                abs(cur.low - prev.close),
+            )
         )
-        true_ranges.append(tr)
-    return sum(true_ranges) / len(true_ranges)
+
+    # Wilder seed then recursive smoothing.
+    avg = sum(true_ranges[:period]) / period
+    for tr in true_ranges[period:]:
+        avg = (avg * (period - 1) + tr) / period
+    return avg

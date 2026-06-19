@@ -21,6 +21,7 @@ class ExecutionMode(str, Enum):
 
 class RepositoryBackend(str, Enum):
     MEMORY = "memory"
+    SQLITE = "sqlite"
     POSTGRES = "postgres"
 
 
@@ -47,6 +48,7 @@ class Settings(BaseSettings):
 
     # --- Repositories ---
     repository_backend: RepositoryBackend = Field(default=RepositoryBackend.MEMORY)
+    sqlite_path: str = "./data_store/mesa.db"
 
     # --- PostgreSQL (only used when repository_backend == postgres) ---
     postgres_host: str = "localhost"

@@ -70,35 +70,42 @@ class OrchestratorAgent:
             return -opinion.confidence
         return 0.0
 
-    def run(self, features: FeatureSet) -> SwarmResult:
-        opinions: dict[str, AgentOpinion] = {
+    # --- Composable steps (also used by the explicit research graph) ---------
+
+    def run_analysts(self, features: FeatureSet) -> dict[str, AgentOpinion]:
+        return {
             "fundamental": self.fundamental.run(features),
             "technical": self.technical.run(features),
             "news": self.news.run(features),
             "macro": self.macro.run(features),
         }
 
-        # Skeptic always runs and always argues against (mandatory skeptic_view).
-        skeptic_view, skeptic_strength = self.skeptic.skeptic_view(features)
-
-        # Aggregate the four directional analysts.
+    def aggregate(
+        self, opinions: dict[str, AgentOpinion], skeptic_strength: float
+    ) -> tuple[float, float]:
+        """Return ``(net_score, aggregate_confidence)``."""
         signed = [self._signed(o) for o in opinions.values()]
         net = sum(signed) / len(signed) if signed else 0.0
         base_bull = max(0.0, net)
         aggregate_conf = base_bull * (1.0 - 0.5 * skeptic_strength)
+        return net, aggregate_conf
 
+    def decide_status(
+        self, net: float, aggregate_conf: float, features: FeatureSet
+    ) -> MemoStatus:
+        if net > 0.0 and aggregate_conf >= self.CONFIDENCE_THRESHOLD and features.is_complete:
+            return MemoStatus.COMPLETE
+        return MemoStatus.REJECTED
+
+    def run(self, features: FeatureSet) -> SwarmResult:
+        opinions = self.run_analysts(features)
+
+        # Skeptic always runs and always argues against (mandatory skeptic_view).
+        skeptic_view, skeptic_strength = self.skeptic.skeptic_view(features)
+
+        net, aggregate_conf = self.aggregate(opinions, skeptic_strength)
         risk_proposal = self.risk_analyst.propose(features, direction=Direction.LONG)
-
-        # Long-only: only a net-bullish, sufficiently-confident, fully-featured
-        # thesis becomes a COMPLETE memo eligible for signal generation.
-        if (
-            net > 0.0
-            and aggregate_conf >= self.CONFIDENCE_THRESHOLD
-            and features.is_complete
-        ):
-            status = MemoStatus.COMPLETE
-        else:
-            status = MemoStatus.REJECTED
+        status = self.decide_status(net, aggregate_conf, features)
 
         asset_type = UNIVERSE[features.symbol].asset_type
         memo = self.generator.build(
