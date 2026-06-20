@@ -111,6 +111,18 @@ target, or time stop over a held-out window, printing a trade journal (round
 trips, PnL, R-multiples) and an equity-curve summary (total return, max
 drawdown). Paper only — live trading is disabled.
 
+## Run the multi-day simulation (with drawdown halting)
+
+```bash
+python scripts/run_simulation.py --seed 42 --days 180 --warmup 60
+```
+
+Walks day-by-day over the whole period: marks and manages open positions,
+**halts new entries when the daily (2%) or weekly (5%) loss limit is breached**
+(engaging the kill switch), and enters approved signals otherwise — using only
+data available up to each day (no look-ahead). Reports entries/exits, halt days,
+total return, and max drawdown. Paper only.
+
 ## Docker (optional, Phase 1+)
 
 `docker-compose.yml` defines PostgreSQL/TimescaleDB and Redis for when the
