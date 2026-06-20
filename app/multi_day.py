@@ -94,6 +94,8 @@ class MultiDaySimulation:
         self.kill_switch = KillSwitch()
         self.logger = logger or get_logger("multi_day")
         self._marks: dict[str, float] = {}
+        # Per-day audit log: (day_index, equity, halted) — used for charts/reports.
+        self.daily_log: list[tuple[int, float, bool]] = []
 
     def _risk_context(self, history_len: int, liquidity: float, backtest_passed: bool,
                       daily_loss: float, weekly_loss: float) -> RiskContext:
@@ -170,7 +172,9 @@ class MultiDaySimulation:
                 n_entries += self._try_entries(symbols, bars, t, status.daily_loss_pct,
                                                status.weekly_loss_pct)
 
-            self.equity.record(self.portfolio.equity(self._marks), label=f"day{t}")
+            end_equity = self.portfolio.equity(self._marks)
+            self.equity.record(end_equity, label=f"day{t}")
+            self.daily_log.append((t, round(end_equity, 2), status.halted))
 
         # Force-close anything still open at the last close.
         last_prices = {s: bars[s][-1].close for s in symbols}

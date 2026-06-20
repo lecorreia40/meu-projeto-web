@@ -35,6 +35,10 @@ dev = [
     "mypy>=1.8",
     "ruff>=0.3",
 ]
+# Optional charting for scripts/plot_simulation.py (not required by tests/app).
+viz = [
+    "matplotlib>=3.7",
+]
 
 [tool.setuptools]
 # The project uses top-level package directories (app/, core/, risk/, ...).
