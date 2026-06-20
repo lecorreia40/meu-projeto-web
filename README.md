@@ -100,6 +100,17 @@ Generates deterministic synthetic OHLCV for the 21-symbol universe and prints
 SMA20 / RSI14 / ATR14 / liquidity per symbol. **No network or broker is
 contacted.**
 
+## Run the managed cycle (entry → manage → exit)
+
+```bash
+python scripts/run_managed_cycle.py --seed 42 --days 180 --holdout 30
+```
+
+Enters paper positions on a warmup window, then manages each to its stop,
+target, or time stop over a held-out window, printing a trade journal (round
+trips, PnL, R-multiples) and an equity-curve summary (total return, max
+drawdown). Paper only — live trading is disabled.
+
 ## Docker (optional, Phase 1+)
 
 `docker-compose.yml` defines PostgreSQL/TimescaleDB and Redis for when the

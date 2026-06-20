@@ -20,10 +20,12 @@ def validate_order(order: Order, *, live_trading_enabled: bool = False) -> None:
         )
     if order.quantity <= 0:
         raise ValidationError(f"order {order.order_id} has non-positive quantity")
-    if order.side is not OrderSide.BUY:
-        # MVP is long-only: only BUY-to-open is permitted.
+    if order.side is OrderSide.SELL and not order.is_close:
+        # MVP is long-only: SELL is permitted only to CLOSE an existing long,
+        # never to open or increase a short.
         raise ValidationError(
-            f"order {order.order_id} side {order.side.value} not allowed (long-only MVP)"
+            f"order {order.order_id} is a SELL that does not close a long "
+            "(short selling is not allowed in the MVP)"
         )
     if order.mode is ExecutionMode.LIVE and not live_trading_enabled:
         raise LiveTradingDisabledError(

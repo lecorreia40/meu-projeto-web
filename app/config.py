@@ -58,6 +58,13 @@ class Settings(BaseSettings):
     postgres_password: str = ""
     database_url: str = ""
 
+    # --- LLM provider (agents use mock responses by default; Phase 3) ---
+    # "mock" keeps the system fully offline. "anthropic" requires llm_api_key
+    # (or ANTHROPIC_API_KEY in the environment) and the `anthropic` SDK.
+    llm_provider: str = "mock"
+    llm_model: str = "claude-opus-4-8"
+    llm_api_key: str = ""
+
     # --- Risk policy overrides (defaults mirror risk/policy.py) ---
     risk_max_risk_per_trade_pct: float = 1.0
     risk_max_position_size_pct: float = 2.0

@@ -59,6 +59,9 @@ class Order(BaseModel):
 
     # Set ONLY by the risk engine. Execution refuses to submit without it.
     risk_approved: bool = False
+    # True for a reduce-only SELL that closes (part of) an existing long.
+    # The MVP never opens shorts; SELL is allowed only when is_close is True.
+    is_close: bool = False
     mode: ExecutionMode = ExecutionMode.PAPER
     status: OrderStatus = OrderStatus.NEW
     created_at: datetime = Field(default_factory=utcnow)
