@@ -42,5 +42,9 @@ services:
     rootDir: web
     buildCommand: npm install && npm run build
     startCommand: npx next start -p $PORT -H 0.0.0.0
-    # No NEXT_PUBLIC_API_URL needed: the panel derives the API host from its own
-    # hostname at runtime (mesa-panel.* -> mesa-api.*). See web/lib/api.ts.
+    envVars:
+      # The API service got a suffixed URL (the plain "mesa-api" name was taken),
+      # so point the panel at the real URL explicitly. (Update this if you
+      # recreate the API service and its URL changes.)
+      - key: NEXT_PUBLIC_API_URL
+        value: https://mesa-api-01ke.onrender.com
