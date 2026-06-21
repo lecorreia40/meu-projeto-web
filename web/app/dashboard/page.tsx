@@ -3,11 +3,15 @@
 import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AccountsPayload,
   AdminState,
   CycleResult,
   Decision,
+  Ontology,
   RiskPolicy,
   clearToken,
+  getAccounts,
+  getOntology,
   getState,
   getToken,
   runCycle,
@@ -41,6 +45,45 @@ function DecisionDetail({ d }: { d: Decision }) {
         Direção: <b>{d.direction}</b> · confiança {d.confidence.toFixed(2)} ·
         net score {d.net_score?.toFixed(2) ?? "—"}
       </div>
+
+      {/* Linhagem de dados: o que cada função trouxe + a validação */}
+      {d.data_trace?.available && (
+        <div style={{ marginBottom: 14 }}>
+          <b>Dados de entrada (linhagem)</b>
+          <p className="muted" style={{ marginTop: 4, marginBottom: 8 }}>
+            O que cada função trouxe e de onde veio.
+          </p>
+          <table>
+            <thead>
+              <tr><th>Indicador</th><th>Valor</th><th>Fonte</th></tr>
+            </thead>
+            <tbody>
+              {d.data_trace.inputs.map((i) => (
+                <tr key={i.name}>
+                  <td><b>{i.name}</b></td>
+                  <td>{i.value === null ? "—" : String(i.value)}</td>
+                  <td className="muted">{i.source}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ marginTop: 10 }}>
+            <b>Validação dos dados</b>{" "}
+            <span className="pill" style={{
+              background: (d.data_trace.all_passed ? "#22c55e" : "#f59e0b") + "22",
+              color: d.data_trace.all_passed ? "var(--green)" : "var(--amber)",
+            }}>
+              {d.data_trace.all_passed ? "tudo validado" : "atenção"}
+            </span>
+          </div>
+          {d.data_trace.validations.map((v) => (
+            <div key={v.check} className="muted" style={{ marginTop: 6 }}>
+              {v.passed ? "✅" : "🚫"} <b>{v.check}</b> — {v.detail}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ marginBottom: 12 }}>
         <b>Agentes</b>
@@ -110,6 +153,9 @@ export default function Dashboard() {
   const [result, setResult] = useState<CycleResult | null>(null);
   const [threshold, setThreshold] = useState<number>(0.15);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<AccountsPayload | null>(null);
+  const [ontology, setOntology] = useState<Ontology | null>(null);
+  const [showOntology, setShowOntology] = useState(false);
 
   useEffect(() => {
     if (!getToken()) {
@@ -126,6 +172,9 @@ export default function Dashboard() {
       setState(s);
       setPolicy(s.risk_policy);
       setThreshold(s.confidence_threshold);
+      const [acc, ont] = await Promise.all([getAccounts(), getOntology()]);
+      setAccounts(acc);
+      setOntology(ont);
     } catch (err) {
       handleError(err);
     }
@@ -220,6 +269,78 @@ export default function Dashboard() {
 
       {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div className="banner">{msg}</div>}
+
+      {/* Contas */}
+      {accounts && (
+        <div className="card">
+          <h2>Contas</h2>
+          <p className="muted" style={{ marginTop: -8, marginBottom: 14 }}>
+            Existem duas contas no ambiente: a de <b>teste (paper)</b>, ativa, e a
+            <b> real (live)</b>, que fica travada por segurança.
+          </p>
+          {accounts.accounts.map((a) => {
+            const active = a.status === "active";
+            return (
+              <div
+                key={a.key}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: 16,
+                  marginBottom: 12,
+                  background: active ? "#f3fbf8" : "#fff8f1",
+                }}
+              >
+                <div className="row">
+                  <div>
+                    <b>{a.name}</b>{" "}
+                    <span className="pill" style={{
+                      background: (active ? "#22c55e" : "#cb1010") + "22",
+                      color: active ? "var(--green)" : "var(--red)",
+                    }}>
+                      {active ? "ATIVA" : "TRAVADA"}
+                    </span>
+                  </div>
+                  <span className="muted">corretora: {a.broker}</span>
+                </div>
+                <p className="muted" style={{ marginTop: 8 }}>{a.description}</p>
+                {active && (
+                  <div className="muted">
+                    Saldo inicial: ${Math.round(a.starting_balance).toLocaleString()} ·
+                    pode operar: ✅
+                  </div>
+                )}
+                {a.key === "live" && (
+                  <>
+                    <div style={{ marginTop: 10 }}>
+                      <b>Onde entram as credenciais</b> (somente variáveis de ambiente — nunca no código):
+                    </div>
+                    {a.credential_slots.map((c) => (
+                      <div key={c.env_var} className="muted" style={{ marginTop: 4 }}>
+                        {c.present ? "✅" : "⬜"} <code>{c.env_var}</code> — {c.label}
+                        {c.present ? " (definida)" : " (não definida)"}
+                      </div>
+                    ))}
+                    {a.readiness && (
+                      <div style={{ marginTop: 12 }}>
+                        <b>Checklist de prontidão (live)</b>{" "}
+                        <span className="pill" style={{ background: "#cb101022", color: "var(--red)" }}>
+                          {a.readiness.ready ? "PRONTA" : "NÃO PRONTA"}
+                        </span>
+                        {a.readiness.checks.map((ck) => (
+                          <div key={ck.name} className="muted" style={{ marginTop: 4 }}>
+                            {ck.ready ? "✅" : "⛔"} <b>{ck.name}</b> — {ck.detail}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Agentes */}
       <div className="card">
@@ -411,6 +532,73 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Ontologia */}
+      {ontology && (
+        <div className="card">
+          <div className="row">
+            <h2 style={{ margin: 0 }}>Camada ontológica</h2>
+            <button className="secondary" onClick={() => setShowOntology((v) => !v)}>
+              {showOntology ? "Ocultar" : "Mostrar"}
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 8, marginBottom: showOntology ? 14 : 0 }}>
+            Modelo formal do domínio: {ontology.entity_count} entidades e{" "}
+            {ontology.relation_count} relações — cada conceito que a mesa usa, seus
+            campos, validações e como se conectam.
+          </p>
+
+          {showOntology && (
+            <>
+              {ontology.entities.map((e) => (
+                <div key={e.name} style={{
+                  border: "1px solid var(--border)", borderRadius: 10,
+                  padding: 14, marginBottom: 10,
+                }}>
+                  <div className="row">
+                    <b>{e.name}</b>
+                    <span className="pill" style={{ background: "#009fd922", color: "var(--blue)" }}>
+                      {e.layer}
+                    </span>
+                  </div>
+                  <p className="muted" style={{ margin: "6px 0 8px" }}>{e.description}</p>
+                  <table>
+                    <thead>
+                      <tr><th>Campo</th><th>Tipo</th><th>Validação</th></tr>
+                    </thead>
+                    <tbody>
+                      {e.fields.map((f) => (
+                        <tr key={f.name}>
+                          <td><b>{f.name}</b></td>
+                          <td className="muted">{f.type}</td>
+                          <td className="muted">{f.validation || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+
+              <h2 style={{ marginTop: 18 }}>Relações</h2>
+              <table>
+                <thead>
+                  <tr><th>De</th><th>Relação</th><th>Para</th><th>Descrição</th></tr>
+                </thead>
+                <tbody>
+                  {ontology.relations.map((r, i) => (
+                    <tr key={i}>
+                      <td><b>{r.src}</b></td>
+                      <td className="muted">{r.kind}</td>
+                      <td><b>{r.dst}</b></td>
+                      <td className="muted">{r.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

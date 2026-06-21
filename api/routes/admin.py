@@ -157,6 +157,71 @@ def _enum(value: object) -> object:
     return value.value if hasattr(value, "value") else value
 
 
+def _round(value: object) -> object:
+    return round(value, 4) if isinstance(value, float) else value
+
+
+def _data_trace(features: object, backtest: object) -> dict[str, object]:
+    """The data each function brought in + the validation verdict per check.
+
+    Answers the owner's question: *what data did each step produce, did it pass
+    validation, and how did that drive the decision?*
+    """
+    if features is None:
+        return {"available": False, "inputs": [], "validations": []}
+
+    f = features
+    inputs = [
+        {"name": "last_price", "value": _round(getattr(f, "last_price", None)), "source": "MockPriceFeed (OHLCV)"},
+        {"name": "history_len", "value": getattr(f, "history_len", None), "source": "MockPriceFeed (bars)"},
+        {"name": "sma20", "value": _round(getattr(f, "sma20", None)), "source": "features.moving_average"},
+        {"name": "sma50", "value": _round(getattr(f, "sma50", None)), "source": "features.moving_average"},
+        {"name": "rsi14", "value": _round(getattr(f, "rsi14", None)), "source": "features.rsi (Wilder)"},
+        {"name": "atr14", "value": _round(getattr(f, "atr14", None)), "source": "features.atr (Wilder)"},
+        {"name": "annualized_vol", "value": _round(getattr(f, "annualized_vol", None)), "source": "features.volatility"},
+        {"name": "momentum20", "value": _round(getattr(f, "momentum20", None)), "source": "features.momentum"},
+        {"name": "liquidity", "value": _round(getattr(f, "liquidity", None)), "source": "features.liquidity_score"},
+    ]
+
+    hist = getattr(f, "history_len", 0) or 0
+    liq = getattr(f, "liquidity", None)
+    validations = [
+        {
+            "check": "histórico suficiente (≥60 barras)",
+            "passed": hist >= 60,
+            "detail": f"{hist} barras disponíveis",
+        },
+        {
+            "check": "features completas (sem None)",
+            "passed": bool(getattr(f, "is_complete", False)),
+            "detail": "todos os indicadores calculados" if getattr(f, "is_complete", False)
+            else "algum indicador ficou None (histórico curto)",
+        },
+        {
+            "check": "liquidez presente",
+            "passed": liq is not None,
+            "detail": f"liquidez={_round(liq)}" if liq is not None else "sem liquidez calculada",
+        },
+        {
+            "check": "preço válido (>0)",
+            "passed": (getattr(f, "last_price", 0) or 0) > 0,
+            "detail": f"último preço={_round(getattr(f, 'last_price', None))}",
+        },
+    ]
+    if backtest is not None:
+        validations.append({
+            "check": "backtest aprovado (gate de replay)",
+            "passed": bool(backtest.passed),
+            "detail": backtest.reason or "ok",
+        })
+    return {
+        "available": True,
+        "inputs": inputs,
+        "validations": validations,
+        "all_passed": all(v["passed"] for v in validations),
+    }
+
+
 def _record_to_decision(r: object) -> dict[str, object]:
     """Flatten one symbol's full decision trail for the panel."""
     swarm = getattr(r, "swarm", None)
@@ -174,9 +239,11 @@ def _record_to_decision(r: object) -> dict[str, object]:
     signal = getattr(r, "signal", None)
     backtest = getattr(r, "backtest", None)
     decision = getattr(r, "decision", None)
+    features = getattr(r, "features", None)
     return {
         "symbol": r.symbol,  # type: ignore[attr-defined]
         "stage": r.stage,  # type: ignore[attr-defined]
+        "data_trace": _data_trace(features, backtest),
         "memo_status": _enum(memo.status),
         "direction": _enum(memo.direction),
         "confidence": round(memo.confidence_score, 3),
@@ -264,3 +331,27 @@ def get_results(_: str = Depends(require_auth)) -> dict[str, object]:
         "signals": _read_jsonl(_ARTIFACTS / "signals.jsonl"),
         "portfolio": json.loads(portfolio_path.read_text()) if portfolio_path.exists() else None,
     }
+
+
+# --- Ontology (knowledge layer) ---------------------------------------------
+
+@router.get("/admin/ontology")
+def get_ontology_view(_: str = Depends(require_auth)) -> dict[str, object]:
+    """Formal model of every domain entity, its fields/validations, and relations."""
+    from core.ontology import get_ontology
+
+    return get_ontology()
+
+
+# --- Accounts (test + gated real) -------------------------------------------
+
+@router.get("/admin/accounts")
+def get_accounts_view(_: str = Depends(require_auth)) -> dict[str, object]:
+    """The test (paper, active) account and the real (live, gated) account.
+
+    Live trading is never enabled here; the real account is reported through the
+    live-readiness gate, which stays closed in the MVP.
+    """
+    from core.accounts import get_accounts_payload
+
+    return get_accounts_payload()

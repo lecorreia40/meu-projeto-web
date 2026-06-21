@@ -137,6 +137,60 @@ def test_run_cycle_returns_decision_trail(client: TestClient) -> None:
     assert completed  # at least one symbol ran the agents
 
 
+def test_run_cycle_includes_data_trace(client: TestClient) -> None:
+    r = client.post("/admin/run-cycle", json={"seed": 42, "days": 120}, headers=_auth(client))
+    body = r.json()
+    d = body["decisions"][0]
+    assert "data_trace" in d
+    trace = d["data_trace"]
+    assert trace["available"] is True
+    # Every input feature is reported with its source.
+    names = {i["name"] for i in trace["inputs"]}
+    assert {"last_price", "rsi14", "atr14", "liquidity"} <= names
+    # Validation checks carry a pass/fail verdict.
+    assert all("passed" in v for v in trace["validations"])
+
+
+# --- Ontology ---------------------------------------------------------------
+
+def test_ontology_endpoint(client: TestClient) -> None:
+    r = client.get("/admin/ontology", headers=_auth(client))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["entity_count"] >= 10
+    assert body["relation_count"] >= 8
+    names = {e["name"] for e in body["entities"]}
+    assert "RiskDecision" in names and "TradingSignal" in names
+
+
+def test_ontology_requires_auth(client: TestClient) -> None:
+    assert client.get("/admin/ontology").status_code == 401
+
+
+# --- Accounts ---------------------------------------------------------------
+
+def test_accounts_endpoint_test_active_real_gated(client: TestClient) -> None:
+    r = client.get("/admin/accounts", headers=_auth(client))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["live_trading_enabled"] is False
+    accounts = {a["key"]: a for a in body["accounts"]}
+    assert accounts["paper"]["status"] == "active"
+    assert accounts["paper"]["can_trade"] is True
+    # The real account exists but is gated and cannot trade.
+    assert accounts["live"]["status"] == "disabled"
+    assert accounts["live"]["can_trade"] is False
+    assert accounts["live"]["readiness"]["ready"] is False
+    # Credential slots are reported as env-var names only (no secret values).
+    slots = accounts["live"]["credential_slots"]
+    assert any(s["env_var"] == "IBKR_ACCOUNT_ID" for s in slots)
+    assert all("present" in s for s in slots)
+
+
+def test_accounts_requires_auth(client: TestClient) -> None:
+    assert client.get("/admin/accounts").status_code == 401
+
+
 def test_disabling_agents_changes_outcomes(client: TestClient) -> None:
     # Disable all four directional analysts -> no net bullish thesis -> no orders.
     for key in ("fundamental", "technical", "news", "macro"):

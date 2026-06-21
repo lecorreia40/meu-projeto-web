@@ -106,9 +106,29 @@ export interface AgentOpinion {
   key_points: string[];
 }
 
+export interface DataTraceInput {
+  name: string;
+  value: number | string | null;
+  source: string;
+}
+
+export interface DataTraceValidation {
+  check: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface DataTrace {
+  available: boolean;
+  inputs: DataTraceInput[];
+  validations: DataTraceValidation[];
+  all_passed?: boolean;
+}
+
 export interface Decision {
   symbol: string;
   stage: string;
+  data_trace: DataTrace;
   memo_status: string;
   direction: string;
   confidence: number;
@@ -193,3 +213,69 @@ export const updateEvaluation = (confidence_threshold: number) =>
     method: "PUT",
     body: JSON.stringify({ confidence_threshold }),
   });
+
+// --- Ontology --------------------------------------------------------------
+
+export interface OntologyField {
+  name: string;
+  type: string;
+  validation: string;
+}
+
+export interface OntologyEntity {
+  name: string;
+  layer: string;
+  description: string;
+  fields: OntologyField[];
+}
+
+export interface OntologyRelation {
+  src: string;
+  dst: string;
+  kind: string;
+  description: string;
+}
+
+export interface Ontology {
+  entities: OntologyEntity[];
+  relations: OntologyRelation[];
+  entity_count: number;
+  relation_count: number;
+}
+
+export const getOntology = () => request<Ontology>("/admin/ontology");
+
+// --- Accounts --------------------------------------------------------------
+
+export interface CredentialSlot {
+  env_var: string;
+  label: string;
+  present: boolean;
+}
+
+export interface ReadinessCheck {
+  name: string;
+  ready: boolean;
+  detail: string;
+}
+
+export interface TradingAccount {
+  key: string;
+  name: string;
+  mode: string;
+  status: string;
+  broker: string;
+  starting_balance: number;
+  description: string;
+  can_trade: boolean;
+  credential_slots: CredentialSlot[];
+  readiness: { ready: boolean; checks: ReadinessCheck[] } | null;
+}
+
+export interface AccountsPayload {
+  accounts: TradingAccount[];
+  live_trading_enabled: boolean;
+  active_account: string;
+}
+
+export const getAccounts = () => request<AccountsPayload>("/admin/accounts");

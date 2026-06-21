@@ -49,6 +49,7 @@ class CycleRecord(BaseModel):
     symbol: str
     stage: Stage
     memo: InvestmentMemo
+    features: FeatureSet | None = None  # the data each function brought in (lineage)
     swarm: SwarmResult | None = None  # per-agent decision trail
     signal: TradingSignal | None = None
     backtest: BacktestResult | None = None
@@ -146,7 +147,8 @@ class TradingDeskPipeline:
         )
         if memo.status is not MemoStatus.COMPLETE:
             return CycleRecord(
-                symbol=symbol, stage="memo_rejected", memo=memo, swarm=swarm,
+                symbol=symbol, stage="memo_rejected", memo=memo,
+                features=features, swarm=swarm,
                 notes="memo not COMPLETE; no signal generated",
             )
 
@@ -180,13 +182,15 @@ class TradingDeskPipeline:
 
         if not backtest.passed and not decision.approved:
             return CycleRecord(
-                symbol=symbol, stage="backtest_blocked", memo=memo, swarm=swarm,
+                symbol=symbol, stage="backtest_blocked", memo=memo,
+                features=features, swarm=swarm,
                 signal=marked, backtest=backtest, decision=decision,
                 notes=f"backtest failed: {backtest.reason}",
             )
         if not decision.approved:
             return CycleRecord(
-                symbol=symbol, stage="risk_blocked", memo=memo, swarm=swarm,
+                symbol=symbol, stage="risk_blocked", memo=memo,
+                features=features, swarm=swarm,
                 signal=marked, backtest=backtest, decision=decision,
                 notes="risk engine blocked: " + ", ".join(decision.reason_values),
             )
@@ -200,7 +204,8 @@ class TradingDeskPipeline:
             mode=execution.fill.mode.value,
         )
         return CycleRecord(
-            symbol=symbol, stage="paper_filled", memo=memo, swarm=swarm,
+            symbol=symbol, stage="paper_filled", memo=memo,
+            features=features, swarm=swarm,
             signal=marked, backtest=backtest, decision=decision, execution=execution,
             notes="paper order filled",
         )
