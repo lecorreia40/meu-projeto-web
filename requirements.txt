@@ -1,0 +1,7 @@
+# Backend (API) runtime dependencies — used by Docker/Render.
+# The API does NOT need streamlit/matplotlib (those are dev/UI extras).
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+pydantic-settings>=2.1
+httpx>=0.26
