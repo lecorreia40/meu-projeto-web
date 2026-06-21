@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     token_ttl_minutes: int = 720
     # Comma-separated origins allowed to call the API (the Next.js dev server).
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    # Optional regex (e.g. https://.*\.onrender\.com) so the deployed panel is
+    # allowed without manually pasting its exact URL.
+    cors_origin_regex: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

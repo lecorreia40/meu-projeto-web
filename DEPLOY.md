@@ -1,71 +1,48 @@
-# Deploy — Mesa Proprietária com IA (paper, sem live)
+# Deploy — tudo no Render (paper, sem live)
 
-Dois serviços gratuitos: **backend (API)** no Render e **painel (frontend)** na
-Vercel. Você faz alguns cliques (conectar suas contas é uma barreira de
-segurança que só você pode passar); a configuração já está pronta no repositório.
+Um único Blueprint sobe **os dois serviços**: a API (Python) e o painel (Next.js).
+Uma conta, uma conexão ao GitHub. A ligação entre painel e API e o CORS são
+**automáticos** — você só define a sua senha.
 
 > Segurança: operação ao vivo permanece **desligada** (`LIVE_TRADING_ENABLED=false`).
-> O painel não liga live trading. A senha do admin fica só nas variáveis de
-> ambiente da hospedagem — nunca no código.
+> A senha do admin fica só nas variáveis de ambiente — nunca no código.
 
----
-
-## A) Backend (API) no Render
+## Passo a passo
 
 1. Acesse **https://render.com** → **Sign in with GitHub**.
-2. **New +** → **Blueprint** → conecte o repositório `lecorreia40/meu-projeto-web`
-   (branch `claude/fundo-yf0a90`). O Render lê o `render.yaml` e cria o serviço
-   **mesa-api**.
-3. Antes de finalizar, em **Environment**, defina:
-   - `ADMIN_PASSWORD` = **uma senha sua** (essa é a senha de login do painel).
-   - `CORS_ORIGINS` = deixe **vazio** por enquanto (preenchemos no passo C).
-   - `AUTH_SECRET` já é gerado automaticamente; `LIVE_TRADING_ENABLED` já vem `false`.
-4. **Apply / Deploy**. Em ~2 minutos você recebe uma URL, ex.:
-   `https://mesa-api.onrender.com`.
-   - Teste abrindo `…/health` (deve responder ok) e `…/docs` (a API).
-   - Obs.: no plano gratuito o serviço "dorme" sem uso; a 1ª chamada após ocioso
-     leva ~30s pra acordar.
+2. **New +** → **Blueprint**.
+3. Conecte o repositório **`lecorreia40/meu-projeto-web`**. Em **Branch**, escolha
+   **`claude/fundo-yf0a90`**. O Render lê o `render.yaml` e mostra 2 serviços:
+   **mesa-api** e **mesa-panel**.
+4. Antes de aplicar, no serviço **mesa-api** defina:
+   - **`ADMIN_PASSWORD`** = uma senha sua (é a senha de login do painel).
+   - (O resto já vem pronto: `AUTH_SECRET` gerado, CORS automático, live desligado.)
+5. **Apply**. Em ~3–5 minutos os dois sobem. Você recebe duas URLs:
+   - **API:** `https://mesa-api.onrender.com` → teste abrindo `…/health`.
+   - **Painel:** `https://mesa-panel.onrender.com` ← **é aqui que você acessa**.
+6. Abra a **URL do painel**, faça login: usuário **`owner`** + a senha do passo 4.
 
-## B) Painel (frontend) na Vercel
+Pronto — ligue/desligue agentes, ajuste limites e rode ciclos em papel, de
+qualquer lugar.
 
-1. Acesse **https://vercel.com** → **Sign in with GitHub**.
-2. **Add New… → Project** → importe `lecorreia40/meu-projeto-web`
-   (branch `claude/fundo-yf0a90`).
-3. Em **Root Directory**, selecione **`web`** (o Next.js é detectado sozinho).
-4. Em **Environment Variables**, adicione:
-   - `NEXT_PUBLIC_API_URL` = a URL do backend do passo A (ex.:
-     `https://mesa-api.onrender.com`).
-5. **Deploy**. Você recebe a URL do painel, ex.: `https://mesa-xxxx.vercel.app`.
+> Plano gratuito: os serviços "dormem" sem uso; a 1ª visita depois de ociosos
+> leva ~30–60s pra acordar. Normal.
 
-## C) Conectar os dois (liberar o painel a chamar a API)
-
-1. Volte ao **Render** → serviço **mesa-api** → **Environment**.
-2. Defina `CORS_ORIGINS` = a URL da Vercel do passo B (ex.:
-   `https://mesa-xxxx.vercel.app`) → **Save** (redeploy automático).
-
-## Pronto — como acessar
-
-- Abra a **URL da Vercel** no navegador.
-- Faça login: usuário **`owner`** + a senha que você pôs em `ADMIN_PASSWORD`.
-- Você já pode ligar/desligar agentes, ajustar limites e rodar ciclos em papel.
-
----
-
-## Variáveis de ambiente (resumo)
+## Variáveis (já configuradas pelo Blueprint)
 
 | Serviço | Variável | Valor |
 |---|---|---|
-| Render (API) | `LIVE_TRADING_ENABLED` | `false` (fixo) |
-| Render (API) | `ADMIN_USERNAME` | `owner` |
-| Render (API) | `ADMIN_PASSWORD` | *sua senha* |
-| Render (API) | `AUTH_SECRET` | *gerado pelo Render* |
-| Render (API) | `CORS_ORIGINS` | URL da Vercel |
-| Vercel (painel) | `NEXT_PUBLIC_API_URL` | URL do Render |
+| mesa-api | `LIVE_TRADING_ENABLED` | `false` (fixo) |
+| mesa-api | `ADMIN_USERNAME` | `owner` |
+| mesa-api | `ADMIN_PASSWORD` | *você define* |
+| mesa-api | `AUTH_SECRET` | *gerado pelo Render* |
+| mesa-api | `CORS_ORIGIN_REGEX` | `https://.*\.onrender\.com` (automático) |
+| mesa-panel | `NEXT_PUBLIC_API_URL` | *ligado automaticamente à mesa-api* |
 
 ## Alternativa: Docker (um servidor seu)
 
 ```bash
 docker build -t mesa-api .
 docker run -p 8000:8000 -e ADMIN_PASSWORD=suaSenha mesa-api
-# API em http://localhost:8000 ; rode o painel em web/ apontando NEXT_PUBLIC_API_URL pra ela
+# painel: rode web/ apontando NEXT_PUBLIC_API_URL para a API
 ```
