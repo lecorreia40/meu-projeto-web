@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2.6",
     "pydantic-settings>=2.1",
     "httpx>=0.26",
+    "streamlit>=1.30",
 ]
 
 [project.optional-dependencies]
