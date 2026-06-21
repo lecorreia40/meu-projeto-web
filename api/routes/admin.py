@@ -66,7 +66,26 @@ def get_state(
         "universe_size": len(SYMBOLS),
         "agents": [a.model_dump() for a in cfg.agents()],
         "risk_policy": cfg.policy().model_dump(),
+        "confidence_threshold": cfg.confidence_threshold(),
     }
+
+
+class EvaluationUpdate(BaseModel):
+    confidence_threshold: float = Field(..., ge=0.0, le=1.0)
+
+
+@router.put("/admin/evaluation")
+def update_evaluation(
+    req: EvaluationUpdate,
+    _: str = Depends(require_auth),
+    cfg: RuntimeConfig = Depends(get_runtime_config),
+) -> dict[str, float]:
+    """Adjust the orchestrator's confidence threshold in real time."""
+    try:
+        value = cfg.set_confidence_threshold(req.confidence_threshold)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"confidence_threshold": value}
 
 
 # --- Agents -----------------------------------------------------------------
@@ -134,6 +153,63 @@ class RunCycleRequest(BaseModel):
     days: int = 180
 
 
+def _enum(value: object) -> object:
+    return value.value if hasattr(value, "value") else value
+
+
+def _record_to_decision(r: object) -> dict[str, object]:
+    """Flatten one symbol's full decision trail for the panel."""
+    swarm = getattr(r, "swarm", None)
+    memo = r.memo  # type: ignore[attr-defined]
+    agents: list[dict[str, object]] = []
+    if swarm is not None:
+        for op in swarm.opinions.values():
+            agents.append({
+                "agent": op.agent,
+                "stance": _enum(op.stance),
+                "confidence": round(op.confidence, 3),
+                "rationale": op.rationale,
+                "key_points": op.key_points,
+            })
+    signal = getattr(r, "signal", None)
+    backtest = getattr(r, "backtest", None)
+    decision = getattr(r, "decision", None)
+    return {
+        "symbol": r.symbol,  # type: ignore[attr-defined]
+        "stage": r.stage,  # type: ignore[attr-defined]
+        "memo_status": _enum(memo.status),
+        "direction": _enum(memo.direction),
+        "confidence": round(memo.confidence_score, 3),
+        "net_score": round(swarm.net_score, 3) if swarm else None,
+        "thesis": memo.thesis,
+        "catalyst": memo.catalyst,
+        "skeptic_view": swarm.skeptic_view if swarm else memo.skeptic_view,
+        "agents": agents,
+        "signal": None if signal is None else {
+            "entry": signal.entry_price,
+            "stop": signal.stop_loss,
+            "target": signal.take_profit,
+            "max_position_pct": signal.max_position_pct,
+            "max_risk_pct": signal.max_risk_pct,
+            "time_horizon": _enum(signal.time_horizon),
+            "reward_risk": swarm.risk_proposal.reward_risk if swarm else None,
+        },
+        "backtest": None if backtest is None else {
+            "passed": backtest.passed,
+            "reason": backtest.reason,
+            "win_rate": backtest.metrics.win_rate,
+            "expectancy_r": backtest.metrics.expectancy_r,
+            "n_trades": backtest.metrics.n_trades,
+            "reward_risk": backtest.reward_risk,
+        },
+        "risk": None if decision is None else {
+            "approved": decision.approved,
+            "reasons": decision.reason_values,
+        },
+        "notes": getattr(r, "notes", ""),
+    }
+
+
 @router.post("/admin/run-cycle")
 def run_cycle(
     req: RunCycleRequest,
@@ -148,6 +224,7 @@ def run_cycle(
         days=req.days,
         policy=cfg.policy(),
         enabled_agents=cfg.enabled_directional(),
+        confidence_threshold=cfg.confidence_threshold(),
     )
     summary = pipeline.run(SYMBOLS)
     artifacts = pipeline.persist_artifacts(str(_ARTIFACTS))
@@ -165,6 +242,7 @@ def run_cycle(
             if r.execution is not None
         ],
         "portfolio": snapshot.model_dump(),
+        "decisions": [_record_to_decision(r) for r in summary.records],
         "artifacts": artifacts,
     }
 

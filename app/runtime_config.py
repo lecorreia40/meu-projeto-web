@@ -59,9 +59,23 @@ class AgentState(BaseModel):
 class RuntimeConfig:
     """Process-wide, mutable operational config (owner-operated)."""
 
+    #: Minimum aggregate (post-skeptic) confidence for a memo to be COMPLETE.
+    DEFAULT_CONFIDENCE_THRESHOLD = 0.15
+
     def __init__(self) -> None:
         self._enabled: dict[str, bool] = {a["key"]: True for a in AGENT_REGISTRY}  # type: ignore[index]
         self._policy: RiskPolicy = MVP_RISK_POLICY
+        self._confidence_threshold: float = self.DEFAULT_CONFIDENCE_THRESHOLD
+
+    # --- Evaluation tuning ---
+    def confidence_threshold(self) -> float:
+        return self._confidence_threshold
+
+    def set_confidence_threshold(self, value: float) -> float:
+        if not (0.0 <= value <= 1.0):
+            raise ValueError("confidence_threshold must be between 0 and 1")
+        self._confidence_threshold = value
+        return self._confidence_threshold
 
     # --- Agents ---
     def agents(self) -> list[AgentState]:
@@ -110,6 +124,7 @@ class RuntimeConfig:
     def reset(self) -> None:
         self._enabled = {a["key"]: True for a in AGENT_REGISTRY}  # type: ignore[index]
         self._policy = MVP_RISK_POLICY
+        self._confidence_threshold = self.DEFAULT_CONFIDENCE_THRESHOLD
 
 
 @lru_cache

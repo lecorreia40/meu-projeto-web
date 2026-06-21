@@ -95,6 +95,47 @@ export interface AdminState {
   universe_size: number;
   agents: Agent[];
   risk_policy: RiskPolicy;
+  confidence_threshold: number;
+}
+
+export interface AgentOpinion {
+  agent: string;
+  stance: string;
+  confidence: number;
+  rationale: string;
+  key_points: string[];
+}
+
+export interface Decision {
+  symbol: string;
+  stage: string;
+  memo_status: string;
+  direction: string;
+  confidence: number;
+  net_score: number | null;
+  thesis: string;
+  catalyst: string;
+  skeptic_view: string;
+  agents: AgentOpinion[];
+  signal: {
+    entry: number;
+    stop: number;
+    target: number;
+    max_position_pct: number;
+    max_risk_pct: number;
+    time_horizon: string;
+    reward_risk: number | null;
+  } | null;
+  backtest: {
+    passed: boolean;
+    reason: string;
+    win_rate: number;
+    expectancy_r: number;
+    n_trades: number;
+    reward_risk: number;
+  } | null;
+  risk: { approved: boolean; reasons: string[] } | null;
+  notes: string;
 }
 
 export interface CycleResult {
@@ -113,6 +154,7 @@ export interface CycleResult {
     unrealized_pnl: number;
     commissions_paid: number;
   };
+  decisions: Decision[];
 }
 
 // --- Calls -----------------------------------------------------------------
@@ -144,4 +186,10 @@ export const runCycle = (seed = 42, days = 180) =>
   request<CycleResult>("/admin/run-cycle", {
     method: "POST",
     body: JSON.stringify({ seed, days }),
+  });
+
+export const updateEvaluation = (confidence_threshold: number) =>
+  request<{ confidence_threshold: number }>("/admin/evaluation", {
+    method: "PUT",
+    body: JSON.stringify({ confidence_threshold }),
   });

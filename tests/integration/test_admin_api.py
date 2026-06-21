@@ -111,6 +111,32 @@ def test_run_cycle_returns_summary(client: TestClient) -> None:
     assert body["portfolio"]["equity"] > 0
 
 
+def test_evaluation_threshold_update(client: TestClient) -> None:
+    r = client.put("/admin/evaluation", json={"confidence_threshold": 0.4}, headers=_auth(client))
+    assert r.status_code == 200
+    assert r.json()["confidence_threshold"] == 0.4
+    # Reflected in state.
+    state = client.get("/admin/state", headers=_auth(client)).json()
+    assert state["confidence_threshold"] == 0.4
+
+
+def test_evaluation_threshold_out_of_range(client: TestClient) -> None:
+    r = client.put("/admin/evaluation", json={"confidence_threshold": 2.0}, headers=_auth(client))
+    assert r.status_code == 422  # pydantic validation (le=1.0)
+
+
+def test_run_cycle_returns_decision_trail(client: TestClient) -> None:
+    r = client.post("/admin/run-cycle", json={"seed": 42, "days": 120}, headers=_auth(client))
+    body = r.json()
+    assert "decisions" in body
+    assert len(body["decisions"]) == 21  # one per universe symbol
+    d = body["decisions"][0]
+    # Each decision carries the per-agent trail and the risk verdict.
+    assert "agents" in d and "stage" in d and "skeptic_view" in d
+    completed = [x for x in body["decisions"] if x["agents"]]
+    assert completed  # at least one symbol ran the agents
+
+
 def test_disabling_agents_changes_outcomes(client: TestClient) -> None:
     # Disable all four directional analysts -> no net bullish thesis -> no orders.
     for key in ("fundamental", "technical", "news", "macro"):

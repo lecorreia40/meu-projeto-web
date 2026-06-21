@@ -51,9 +51,16 @@ class OrchestratorAgent:
     DIRECTIONAL = ("fundamental", "technical", "news", "macro")
 
     def __init__(
-        self, llm: LLMClient | None = None, *, enabled_agents: set[str] | None = None
+        self,
+        llm: LLMClient | None = None,
+        *,
+        enabled_agents: set[str] | None = None,
+        confidence_threshold: float | None = None,
     ) -> None:
         self.llm = llm or MockLLMClient()
+        self.confidence_threshold = (
+            self.CONFIDENCE_THRESHOLD if confidence_threshold is None else confidence_threshold
+        )
         _, self.prompt_version = load_prompt("orchestrator")
         self.fundamental = FundamentalAnalystAgent(self.llm)
         self.technical = TechnicalQuantAgent(self.llm)
@@ -108,7 +115,7 @@ class OrchestratorAgent:
     def decide_status(
         self, net: float, aggregate_conf: float, features: FeatureSet
     ) -> MemoStatus:
-        if net > 0.0 and aggregate_conf >= self.CONFIDENCE_THRESHOLD and features.is_complete:
+        if net > 0.0 and aggregate_conf >= self.confidence_threshold and features.is_complete:
             return MemoStatus.COMPLETE
         return MemoStatus.REJECTED
 

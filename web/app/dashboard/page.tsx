@@ -1,18 +1,95 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AdminState,
   CycleResult,
+  Decision,
   RiskPolicy,
   clearToken,
   getState,
   getToken,
   runCycle,
   toggleAgent,
+  updateEvaluation,
   updateRiskPolicy,
 } from "@/lib/api";
+
+const STAGE_LABEL: Record<string, { label: string; color: string }> = {
+  paper_filled: { label: "Ordem em papel", color: "#22c55e" },
+  risk_blocked: { label: "Bloqueado (risco)", color: "#ef4444" },
+  backtest_blocked: { label: "Bloqueado (backtest)", color: "#f59e0b" },
+  memo_rejected: { label: "Rejeitado (tese fraca)", color: "#94a3b8" },
+  signal_created: { label: "Sinal gerado", color: "#3b82f6" },
+};
+
+function stanceColor(stance: string): string {
+  if (stance === "bullish") return "#22c55e";
+  if (stance === "bearish") return "#ef4444";
+  return "#94a3b8";
+}
+
+const STANCE_LABEL: Record<string, string> = {
+  bullish: "alta", bearish: "baixa", neutral: "neutro",
+};
+
+function DecisionDetail({ d }: { d: Decision }) {
+  return (
+    <div style={{ padding: "8px 4px 16px" }}>
+      <div className="muted" style={{ marginBottom: 10 }}>
+        Direção: <b>{d.direction}</b> · confiança {d.confidence.toFixed(2)} ·
+        net score {d.net_score?.toFixed(2) ?? "—"}
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <b>Agentes</b>
+        {d.agents.length === 0 && <div className="muted">(sem opiniões registradas)</div>}
+        {d.agents.map((a) => (
+          <div key={a.agent} className="agent" style={{ display: "block" }}>
+            <div className="row">
+              <b>{a.agent}</b>
+              <span className="pill" style={{ background: stanceColor(a.stance) + "22", color: stanceColor(a.stance) }}>
+                {STANCE_LABEL[a.stance] ?? a.stance} · {a.confidence.toFixed(2)}
+              </span>
+            </div>
+            <div className="muted" style={{ marginTop: 6 }}>{a.rationale}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="banner" style={{ marginBottom: 12 }}>
+        <b>Cético:</b> {d.skeptic_view}
+      </div>
+
+      {d.signal && (
+        <div className="grid" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 12 }}>
+          <div className="metric"><div className="v">{d.signal.entry.toFixed(2)}</div><div className="k">entrada</div></div>
+          <div className="metric"><div className="v">{d.signal.stop.toFixed(2)}</div><div className="k">stop</div></div>
+          <div className="metric"><div className="v">{d.signal.target.toFixed(2)}</div><div className="k">alvo</div></div>
+          <div className="metric"><div className="v">{d.signal.reward_risk?.toFixed(1) ?? "—"}</div><div className="k">retorno/risco</div></div>
+        </div>
+      )}
+
+      {d.backtest && (
+        <div className="muted" style={{ marginBottom: 8 }}>
+          <b>Backtest:</b> {d.backtest.passed ? "✅ passou" : "🚫 falhou"} — {d.backtest.reason}
+          {" "}(trades {d.backtest.n_trades}, acerto {(d.backtest.win_rate * 100).toFixed(0)}%,
+          expectativa {d.backtest.expectancy_r.toFixed(2)}R)
+        </div>
+      )}
+
+      {d.risk && (
+        <div className="muted">
+          <b>Risco:</b>{" "}
+          {d.risk.approved
+            ? "✅ aprovado"
+            : "🚫 bloqueado — " + d.risk.reasons.join(", ")}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const RISK_FIELDS: { key: keyof RiskPolicy; label: string }[] = [
   { key: "max_risk_per_trade_pct", label: "Risco máx. por trade (%)" },
@@ -31,6 +108,8 @@ export default function Dashboard() {
   const [msg, setMsg] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<CycleResult | null>(null);
+  const [threshold, setThreshold] = useState<number>(0.15);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -46,6 +125,18 @@ export default function Dashboard() {
       const s = await getState();
       setState(s);
       setPolicy(s.risk_policy);
+      setThreshold(s.confidence_threshold);
+    } catch (err) {
+      handleError(err);
+    }
+  }
+
+  async function onSaveThreshold() {
+    setError("");
+    setMsg("");
+    try {
+      await updateEvaluation(threshold);
+      setMsg(`Limiar de confiança ajustado para ${threshold}.`);
     } catch (err) {
       handleError(err);
     }
@@ -179,6 +270,31 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Avaliação em tempo real */}
+      <div className="card">
+        <h2>Avaliação dos agentes (tempo real)</h2>
+        <p className="muted" style={{ marginTop: -8, marginBottom: 14 }}>
+          Limiar de confiança: quanto maior, mais seletivo (menos teses viram
+          sinal). Ajuste e rode de novo pra ver o efeito.
+        </p>
+        <div className="row" style={{ justifyContent: "flex-start", gap: 16 }}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={threshold}
+            onChange={(e) => setThreshold(parseFloat(e.target.value))}
+            style={{ flex: 1, maxWidth: 400 }}
+          />
+          <div className="metric" style={{ minWidth: 90, textAlign: "center" }}>
+            <div className="v">{threshold.toFixed(2)}</div>
+            <div className="k">limiar</div>
+          </div>
+          <button onClick={onSaveThreshold}>Aplicar</button>
+        </div>
+      </div>
+
       {/* Rodar ciclo */}
       <div className="card">
         <h2>Executar ciclo (paper)</h2>
@@ -241,6 +357,57 @@ export default function Dashboard() {
                 </table>
               </>
             )}
+
+            <h2 style={{ marginTop: 24 }}>Decisões dos agentes (por ativo)</h2>
+            <p className="muted" style={{ marginTop: -8, marginBottom: 10 }}>
+              Clique num ativo para ver o raciocínio de cada agente, a visão do
+              cético e por que foi aprovado ou bloqueado.
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Ativo</th><th>Etapa</th><th>Confiança</th>
+                  <th>Net</th><th>Risco</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.decisions.map((d) => {
+                  const st = STAGE_LABEL[d.stage] ?? { label: d.stage, color: "#94a3b8" };
+                  const open = expanded === d.symbol;
+                  return (
+                    <Fragment key={d.symbol}>
+                      <tr
+                        onClick={() => setExpanded(open ? null : d.symbol)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <td><b>{d.symbol}</b> {open ? "▾" : "▸"}</td>
+                        <td>
+                          <span className="pill" style={{ background: st.color + "22", color: st.color }}>
+                            {st.label}
+                          </span>
+                        </td>
+                        <td>{d.confidence.toFixed(2)}</td>
+                        <td>{d.net_score?.toFixed(2) ?? "—"}</td>
+                        <td>
+                          {d.risk
+                            ? d.risk.approved
+                              ? "✅"
+                              : "🚫 " + d.risk.reasons.join(", ")
+                            : "—"}
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr>
+                          <td colSpan={5} style={{ background: "var(--panel-2)" }}>
+                            <DecisionDetail d={d} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

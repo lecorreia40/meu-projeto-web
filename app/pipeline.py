@@ -16,7 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from agents.orchestrator import OrchestratorAgent
+from agents.orchestrator import OrchestratorAgent, SwarmResult
 from backtest.engine import BacktestEngine, BacktestResult
 from core.events import EventType
 from core.logging import StructuredLogger, get_logger
@@ -49,6 +49,7 @@ class CycleRecord(BaseModel):
     symbol: str
     stage: Stage
     memo: InvestmentMemo
+    swarm: SwarmResult | None = None  # per-agent decision trail
     signal: TradingSignal | None = None
     backtest: BacktestResult | None = None
     decision: RiskDecision | None = None
@@ -85,6 +86,7 @@ class TradingDeskPipeline:
         live_trading_enabled: bool = False,
         policy: "RiskPolicy | None" = None,
         enabled_agents: set[str] | None = None,
+        confidence_threshold: float | None = None,
         memo_repo: MemoRepository | None = None,
         signal_repo: SignalRepository | None = None,
         logger: StructuredLogger | None = None,
@@ -92,7 +94,9 @@ class TradingDeskPipeline:
         self.feed = MockPriceFeed(seed=seed)
         self.days = days
         self.account_equity = account_equity
-        self.orchestrator = OrchestratorAgent(enabled_agents=enabled_agents)
+        self.orchestrator = OrchestratorAgent(
+            enabled_agents=enabled_agents, confidence_threshold=confidence_threshold
+        )
         self.signal_engine = SignalEngine()
         self.backtester = BacktestEngine()
         self.risk_engine = RiskEngine(policy)
@@ -142,7 +146,7 @@ class TradingDeskPipeline:
         )
         if memo.status is not MemoStatus.COMPLETE:
             return CycleRecord(
-                symbol=symbol, stage="memo_rejected", memo=memo,
+                symbol=symbol, stage="memo_rejected", memo=memo, swarm=swarm,
                 notes="memo not COMPLETE; no signal generated",
             )
 
@@ -176,14 +180,14 @@ class TradingDeskPipeline:
 
         if not backtest.passed and not decision.approved:
             return CycleRecord(
-                symbol=symbol, stage="backtest_blocked", memo=memo, signal=marked,
-                backtest=backtest, decision=decision,
+                symbol=symbol, stage="backtest_blocked", memo=memo, swarm=swarm,
+                signal=marked, backtest=backtest, decision=decision,
                 notes=f"backtest failed: {backtest.reason}",
             )
         if not decision.approved:
             return CycleRecord(
-                symbol=symbol, stage="risk_blocked", memo=memo, signal=marked,
-                backtest=backtest, decision=decision,
+                symbol=symbol, stage="risk_blocked", memo=memo, swarm=swarm,
+                signal=marked, backtest=backtest, decision=decision,
                 notes="risk engine blocked: " + ", ".join(decision.reason_values),
             )
 
@@ -196,8 +200,8 @@ class TradingDeskPipeline:
             mode=execution.fill.mode.value,
         )
         return CycleRecord(
-            symbol=symbol, stage="paper_filled", memo=memo, signal=marked,
-            backtest=backtest, decision=decision, execution=execution,
+            symbol=symbol, stage="paper_filled", memo=memo, swarm=swarm,
+            signal=marked, backtest=backtest, decision=decision, execution=execution,
             notes="paper order filled",
         )
 
