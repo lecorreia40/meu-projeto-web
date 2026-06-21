@@ -167,6 +167,31 @@ def test_ontology_requires_auth(client: TestClient) -> None:
     assert client.get("/admin/ontology").status_code == 401
 
 
+# --- Data source ------------------------------------------------------------
+
+def test_data_source_endpoint_defaults_to_mock(client: TestClient) -> None:
+    r = client.get("/admin/data-source", headers=_auth(client))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "mock"
+    assert body["is_real"] is False
+    # Credential slots are env-var names with a present/absent flag (no values).
+    slots = body["credential_slots"]
+    assert any(s["env_var"] == "MARKET_DATA_API_KEY" for s in slots)
+
+
+def test_data_source_requires_auth(client: TestClient) -> None:
+    assert client.get("/admin/data-source").status_code == 401
+
+
+def test_decision_trace_reports_price_source(client: TestClient) -> None:
+    r = client.post("/admin/run-cycle", json={"seed": 42, "days": 120}, headers=_auth(client))
+    d = r.json()["decisions"][0]
+    sources = {i["source"] for i in d["data_trace"]["inputs"]}
+    # Default mock feed is named in the lineage.
+    assert any("MockPriceFeed" in s for s in sources)
+
+
 # --- Accounts ---------------------------------------------------------------
 
 def test_accounts_endpoint_test_active_real_gated(client: TestClient) -> None:

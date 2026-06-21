@@ -20,7 +20,8 @@ from agents.orchestrator import OrchestratorAgent, SwarmResult
 from backtest.engine import BacktestEngine, BacktestResult
 from core.events import EventType
 from core.logging import StructuredLogger, get_logger
-from data.ingestion.prices import MockPriceFeed
+from data.ingestion.feed_factory import build_price_feed
+from data.ingestion.prices import PriceFeed
 from data.market_schema import MarketBar
 from execution.order_manager import ExecutionResult, OrderManager
 from execution.paper_trading import PaperBroker
@@ -88,11 +89,14 @@ class TradingDeskPipeline:
         policy: "RiskPolicy | None" = None,
         enabled_agents: set[str] | None = None,
         confidence_threshold: float | None = None,
+        feed: PriceFeed | None = None,
         memo_repo: MemoRepository | None = None,
         signal_repo: SignalRepository | None = None,
         logger: StructuredLogger | None = None,
     ) -> None:
-        self.feed = MockPriceFeed(seed=seed)
+        # The factory returns the deterministic mock by default, or a real
+        # provider (fail-closed) when MARKET_DATA_PROVIDER is set.
+        self.feed = feed or build_price_feed(seed=seed)
         self.days = days
         self.account_equity = account_equity
         self.orchestrator = OrchestratorAgent(

@@ -279,3 +279,18 @@ export interface AccountsPayload {
 }
 
 export const getAccounts = () => request<AccountsPayload>("/admin/accounts");
+
+// --- Data source -----------------------------------------------------------
+
+export interface DataSource {
+  provider: string;
+  is_real: boolean;
+  configured: boolean;
+  feed: string | null;
+  base_url: string | null;
+  status: "mock" | "live" | "blocked";
+  label: string;
+  credential_slots: CredentialSlot[];
+}
+
+export const getDataSource = () => request<DataSource>("/admin/data-source");

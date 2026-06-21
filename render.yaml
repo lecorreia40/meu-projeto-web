@@ -32,6 +32,17 @@ services:
       # URL paste needed. The API is still protected by login/token.
       - key: CORS_ORIGIN_REGEX
         value: https://.*\.onrender\.com
+      # --- Market data ------------------------------------------------------
+      # Default is the deterministic mock feed (no cost, fully offline). To use
+      # REAL data, set MARKET_DATA_PROVIDER=alpaca and fill the two keys below
+      # in the Render dashboard. If the provider is set but keys are missing,
+      # the feed fails closed (the desk never invents prices).
+      - key: MARKET_DATA_PROVIDER
+        value: mock
+      - key: MARKET_DATA_API_KEY
+        sync: false
+      - key: MARKET_DATA_API_SECRET
+        sync: false
 
   # --- Frontend admin panel (Next.js) ---------------------------------------
   - type: web

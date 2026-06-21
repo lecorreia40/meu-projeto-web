@@ -65,6 +65,30 @@ class Settings(BaseSettings):
     llm_model: str = "claude-opus-4-8"
     llm_api_key: str = ""
 
+    # --- Market data provider ----------------------------------------------
+    # "mock" (default) uses the deterministic synthetic feed and stays fully
+    # offline. "alpaca" pulls real daily OHLCV bars from Alpaca Market Data and
+    # requires MARKET_DATA_API_KEY / MARKET_DATA_API_SECRET (env only — never in
+    # code). If a real provider is selected but misconfigured or unreachable, the
+    # feed FAILS CLOSED (raises) rather than silently inventing prices.
+    market_data_provider: str = "mock"
+    market_data_api_key: str = ""
+    market_data_api_secret: str = ""
+    market_data_base_url: str = "https://data.alpaca.markets"
+    # "iex" is Alpaca's free feed; "sip" is the paid consolidated feed.
+    market_data_feed: str = "iex"
+
+    @property
+    def market_data_is_real(self) -> bool:
+        return self.market_data_provider.strip().lower() not in ("", "mock")
+
+    @property
+    def market_data_configured(self) -> bool:
+        """True when a real provider is selected AND its credentials are present."""
+        return self.market_data_is_real and bool(
+            self.market_data_api_key and self.market_data_api_secret
+        )
+
     # --- Admin panel auth (owner-operated, single user) ---
     # These are LOCAL DEV DEFAULTS — override via .env (ADMIN_PASSWORD, AUTH_SECRET)
     # before exposing the panel anywhere. They are placeholders, not real secrets.

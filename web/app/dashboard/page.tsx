@@ -6,11 +6,13 @@ import {
   AccountsPayload,
   AdminState,
   CycleResult,
+  DataSource,
   Decision,
   Ontology,
   RiskPolicy,
   clearToken,
   getAccounts,
+  getDataSource,
   getOntology,
   getState,
   getToken,
@@ -156,6 +158,7 @@ export default function Dashboard() {
   const [accounts, setAccounts] = useState<AccountsPayload | null>(null);
   const [ontology, setOntology] = useState<Ontology | null>(null);
   const [showOntology, setShowOntology] = useState(false);
+  const [dataSource, setDataSource] = useState<DataSource | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -172,9 +175,12 @@ export default function Dashboard() {
       setState(s);
       setPolicy(s.risk_policy);
       setThreshold(s.confidence_threshold);
-      const [acc, ont] = await Promise.all([getAccounts(), getOntology()]);
+      const [acc, ont, ds] = await Promise.all([
+        getAccounts(), getOntology(), getDataSource(),
+      ]);
       setAccounts(acc);
       setOntology(ont);
+      setDataSource(ds);
     } catch (err) {
       handleError(err);
     }
@@ -269,6 +275,59 @@ export default function Dashboard() {
 
       {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div className="banner">{msg}</div>}
+
+      {/* Fonte de dados */}
+      {dataSource && (
+        <div className="card">
+          <div className="row">
+            <h2 style={{ margin: 0 }}>Fonte de dados de mercado</h2>
+            <span className="pill" style={{
+              background:
+                (dataSource.status === "live" ? "#22c55e"
+                  : dataSource.status === "blocked" ? "#cb1010" : "#aa6b00") + "22",
+              color:
+                dataSource.status === "live" ? "var(--green)"
+                  : dataSource.status === "blocked" ? "var(--red)" : "var(--amber)",
+            }}>
+              {dataSource.status === "live" ? "DADOS REAIS"
+                : dataSource.status === "blocked" ? "TRAVADO (sem credenciais)"
+                : "SIMULADO (mock)"}
+            </span>
+          </div>
+          <p className="muted" style={{ marginTop: 8, marginBottom: 12 }}>
+            {dataSource.status === "mock" && (
+              <>A mesa está usando o feed sintético determinístico — preços
+              gerados localmente, ideal para testar o pipeline sem custo. Para
+              usar dados reais, configure um provedor (ex.: Alpaca) por variáveis
+              de ambiente.</>
+            )}
+            {dataSource.status === "blocked" && (
+              <>Um provedor real (<b>{dataSource.provider}</b>) está selecionado,
+              mas faltam credenciais. Por segurança a mesa <b>não inventa preços</b>:
+              o feed fica travado até as chaves serem definidas.</>
+            )}
+            {dataSource.status === "live" && (
+              <>Conectada a dados reais via <b>{dataSource.provider}</b>
+              {dataSource.feed ? ` (feed ${dataSource.feed})` : ""}.</>
+            )}
+          </p>
+          <div className="muted" style={{ marginBottom: 8 }}>
+            Provedor atual: <b>{dataSource.label}</b>
+          </div>
+          <div style={{ marginTop: 4 }}>
+            <b>Onde configurar</b> (somente variáveis de ambiente — nunca no código):
+          </div>
+          <div className="muted" style={{ marginTop: 4 }}>
+            ⬚ <code>MARKET_DATA_PROVIDER</code> = <code>alpaca</code> (padrão: <code>mock</code>)
+          </div>
+          {dataSource.credential_slots.map((c) => (
+            <div key={c.env_var} className="muted" style={{ marginTop: 4 }}>
+              {c.present ? "✅" : "⬜"} <code>{c.env_var}</code> — {c.label}
+              {c.present ? " (definida)" : " (não definida)"}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Contas */}
       {accounts && (

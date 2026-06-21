@@ -161,7 +161,7 @@ def _round(value: object) -> object:
     return round(value, 4) if isinstance(value, float) else value
 
 
-def _data_trace(features: object, backtest: object) -> dict[str, object]:
+def _data_trace(features: object, backtest: object, price_source: str = "MockPriceFeed") -> dict[str, object]:
     """The data each function brought in + the validation verdict per check.
 
     Answers the owner's question: *what data did each step produce, did it pass
@@ -172,8 +172,8 @@ def _data_trace(features: object, backtest: object) -> dict[str, object]:
 
     f = features
     inputs = [
-        {"name": "last_price", "value": _round(getattr(f, "last_price", None)), "source": "MockPriceFeed (OHLCV)"},
-        {"name": "history_len", "value": getattr(f, "history_len", None), "source": "MockPriceFeed (bars)"},
+        {"name": "last_price", "value": _round(getattr(f, "last_price", None)), "source": f"{price_source} (OHLCV)"},
+        {"name": "history_len", "value": getattr(f, "history_len", None), "source": f"{price_source} (bars)"},
         {"name": "sma20", "value": _round(getattr(f, "sma20", None)), "source": "features.moving_average"},
         {"name": "sma50", "value": _round(getattr(f, "sma50", None)), "source": "features.moving_average"},
         {"name": "rsi14", "value": _round(getattr(f, "rsi14", None)), "source": "features.rsi (Wilder)"},
@@ -222,7 +222,7 @@ def _data_trace(features: object, backtest: object) -> dict[str, object]:
     }
 
 
-def _record_to_decision(r: object) -> dict[str, object]:
+def _record_to_decision(r: object, price_source: str = "MockPriceFeed") -> dict[str, object]:
     """Flatten one symbol's full decision trail for the panel."""
     swarm = getattr(r, "swarm", None)
     memo = r.memo  # type: ignore[attr-defined]
@@ -243,7 +243,7 @@ def _record_to_decision(r: object) -> dict[str, object]:
     return {
         "symbol": r.symbol,  # type: ignore[attr-defined]
         "stage": r.stage,  # type: ignore[attr-defined]
-        "data_trace": _data_trace(features, backtest),
+        "data_trace": _data_trace(features, backtest, price_source),
         "memo_status": _enum(memo.status),
         "direction": _enum(memo.direction),
         "confidence": round(memo.confidence_score, 3),
@@ -296,6 +296,7 @@ def run_cycle(
     summary = pipeline.run(SYMBOLS)
     artifacts = pipeline.persist_artifacts(str(_ARTIFACTS))
     snapshot = pipeline.portfolio_snapshot()
+    price_source = type(pipeline.feed).__name__
     return {
         "counts": summary.counts,
         "paper_orders": [
@@ -309,7 +310,7 @@ def run_cycle(
             if r.execution is not None
         ],
         "portfolio": snapshot.model_dump(),
-        "decisions": [_record_to_decision(r) for r in summary.records],
+        "decisions": [_record_to_decision(r, price_source) for r in summary.records],
         "artifacts": artifacts,
     }
 
@@ -341,6 +342,20 @@ def get_ontology_view(_: str = Depends(require_auth)) -> dict[str, object]:
     from core.ontology import get_ontology
 
     return get_ontology()
+
+
+# --- Data source (mock vs real, fail-closed) --------------------------------
+
+@router.get("/admin/data-source")
+def get_data_source(_: str = Depends(require_auth)) -> dict[str, object]:
+    """Which market-data feed is active (mock vs real) and where keys go.
+
+    A real provider only goes 'live' when its credentials are present; otherwise
+    it is reported as 'blocked' (fail-closed) — the desk never invents prices.
+    """
+    from data.ingestion.feed_factory import describe_data_source
+
+    return describe_data_source()
 
 
 # --- Accounts (test + gated real) -------------------------------------------
