@@ -47,7 +47,12 @@ class OrchestratorAgent:
     #: Minimum aggregate (post-skeptic) confidence to mark a memo COMPLETE.
     CONFIDENCE_THRESHOLD = 0.15
 
-    def __init__(self, llm: LLMClient | None = None) -> None:
+    #: The four directional analysts that may be toggled by the admin panel.
+    DIRECTIONAL = ("fundamental", "technical", "news", "macro")
+
+    def __init__(
+        self, llm: LLMClient | None = None, *, enabled_agents: set[str] | None = None
+    ) -> None:
         self.llm = llm or MockLLMClient()
         _, self.prompt_version = load_prompt("orchestrator")
         self.fundamental = FundamentalAnalystAgent(self.llm)
@@ -57,6 +62,10 @@ class OrchestratorAgent:
         self.skeptic = SkepticAgent(self.llm)
         self.risk_analyst = RiskAnalystAgent(self.llm)
         self.generator = MemoGenerator()
+        # None = all directional analysts enabled (unchanged default behavior).
+        self.enabled_agents = (
+            set(self.DIRECTIONAL) if enabled_agents is None else set(enabled_agents)
+        )
 
     @property
     def model_version(self) -> str:
@@ -73,11 +82,17 @@ class OrchestratorAgent:
     # --- Composable steps (also used by the explicit research graph) ---------
 
     def run_analysts(self, features: FeatureSet) -> dict[str, AgentOpinion]:
+        agents = {
+            "fundamental": self.fundamental,
+            "technical": self.technical,
+            "news": self.news,
+            "macro": self.macro,
+        }
+        # Only run the directional analysts that are enabled (admin toggle).
         return {
-            "fundamental": self.fundamental.run(features),
-            "technical": self.technical.run(features),
-            "news": self.news.run(features),
-            "macro": self.macro.run(features),
+            key: agent.run(features)
+            for key, agent in agents.items()
+            if key in self.enabled_agents
         }
 
     def aggregate(

@@ -28,6 +28,7 @@ from features.pipeline import FeatureSet, build_feature_set
 from memos.memo_repository import MemoRepository
 from memos.memo_schema import InvestmentMemo, MemoStatus
 from portfolio.paper_portfolio import PaperPortfolio, PortfolioSnapshot
+from risk.policy import RiskPolicy
 from risk.risk_engine import RiskDecision, RiskEngine
 from risk.rules import RiskContext
 from signals.signal_engine import SignalEngine
@@ -82,6 +83,8 @@ class TradingDeskPipeline:
         days: int = 180,
         account_equity: float = 100_000.0,
         live_trading_enabled: bool = False,
+        policy: "RiskPolicy | None" = None,
+        enabled_agents: set[str] | None = None,
         memo_repo: MemoRepository | None = None,
         signal_repo: SignalRepository | None = None,
         logger: StructuredLogger | None = None,
@@ -89,10 +92,10 @@ class TradingDeskPipeline:
         self.feed = MockPriceFeed(seed=seed)
         self.days = days
         self.account_equity = account_equity
-        self.orchestrator = OrchestratorAgent()
+        self.orchestrator = OrchestratorAgent(enabled_agents=enabled_agents)
         self.signal_engine = SignalEngine()
         self.backtester = BacktestEngine()
-        self.risk_engine = RiskEngine()
+        self.risk_engine = RiskEngine(policy)
         self.broker = PaperBroker()
         self.order_manager = OrderManager(self.broker, live_trading_enabled=live_trading_enabled)
         self.memo_repo = memo_repo or MemoRepository()

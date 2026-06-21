@@ -14,8 +14,9 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import health, memos, orders, portfolio, risk, signals
+from api.routes import admin, health, memos, orders, portfolio, risk, signals
 from app.config import get_settings
 from app.dependencies import get_app_logger
 from core.events import EventType
@@ -48,12 +49,22 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Allow the Next.js admin panel (separate origin) to call the API.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.include_router(health.router)
     app.include_router(memos.router)
     app.include_router(signals.router)
     app.include_router(risk.router)
     app.include_router(orders.router)
     app.include_router(portfolio.router)
+    app.include_router(admin.router)
 
     @app.get("/", tags=["root"])
     def root() -> dict[str, object]:

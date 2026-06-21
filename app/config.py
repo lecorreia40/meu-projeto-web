@@ -65,6 +65,21 @@ class Settings(BaseSettings):
     llm_model: str = "claude-opus-4-8"
     llm_api_key: str = ""
 
+    # --- Admin panel auth (owner-operated, single user) ---
+    # These are LOCAL DEV DEFAULTS — override via .env (ADMIN_PASSWORD, AUTH_SECRET)
+    # before exposing the panel anywhere. They are placeholders, not real secrets.
+    admin_username: str = "owner"
+    admin_password: str = "change-me-now"
+    auth_secret: str = "dev-only-change-me"
+    token_ttl_minutes: int = 720
+    # Comma-separated origins allowed to call the API (the Next.js dev server).
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
     # --- Risk policy overrides (defaults mirror risk/policy.py) ---
     risk_max_risk_per_trade_pct: float = 1.0
     risk_max_position_size_pct: float = 2.0
