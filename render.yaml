@@ -42,11 +42,5 @@ services:
     rootDir: web
     buildCommand: npm install && npm run build
     startCommand: npx next start -p $PORT -H 0.0.0.0
-    envVars:
-      # Point the panel at the API service automatically (Render injects the
-      # API's hostname; the client adds https://).
-      - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: mesa-api
-          property: host
+    # No NEXT_PUBLIC_API_URL needed: the panel derives the API host from its own
+    # hostname at runtime (mesa-panel.* -> mesa-api.*). See web/lib/api.ts.

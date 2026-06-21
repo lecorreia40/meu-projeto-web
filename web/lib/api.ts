@@ -1,13 +1,28 @@
 // API client for the Mesa admin panel.
-// Talks to the FastAPI backend (default http://localhost:8000).
+// Talks to the FastAPI backend.
 
-function normalizeUrl(u: string | undefined): string {
-  if (!u) return "http://localhost:8000";
-  // Render's fromService injects a bare hostname; ensure a scheme is present.
+function withScheme(u: string): string {
   return /^https?:\/\//i.test(u) ? u : `https://${u}`;
 }
 
-export const API_URL = normalizeUrl(process.env.NEXT_PUBLIC_API_URL);
+// Resolve the API base URL robustly:
+//  1. NEXT_PUBLIC_API_URL if provided at build time;
+//  2. otherwise, when served from Render, derive the API host from the panel's
+//     own hostname (mesa-panel.* -> mesa-api.*);
+//  3. otherwise local dev.
+function resolveApiUrl(): string {
+  const env = process.env.NEXT_PUBLIC_API_URL;
+  if (env && env.trim()) return withScheme(env.trim());
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.includes("mesa-panel")) {
+      return `https://${host.replace("mesa-panel", "mesa-api")}`;
+    }
+  }
+  return "http://localhost:8000";
+}
+
+export const API_URL = resolveApiUrl();
 
 const TOKEN_KEY = "mesa_token";
 
