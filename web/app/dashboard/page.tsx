@@ -264,7 +264,10 @@ export default function Dashboard() {
     <div className="container">
       <div className="row" style={{ marginBottom: 8 }}>
         <h1>Mesa Proprietária com IA — Admin</h1>
-        <button className="secondary" onClick={logout}>Sair</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => router.push("/control")}>Sala de Controle</button>
+          <button className="secondary" onClick={logout}>Sair</button>
+        </div>
       </div>
 
       <div className="banner">
