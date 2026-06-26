@@ -1,0 +1,140 @@
+"""Application settings.
+
+Loaded from environment variables / ``.env`` via pydantic-settings. The most
+important field is :attr:`Settings.live_trading_enabled`, which defaults to
+``False`` and gates *all* live execution. The MVP must keep it false.
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ExecutionMode(str, Enum):
+    PAPER = "paper"
+    LIVE = "live"
+
+
+class RepositoryBackend(str, Enum):
+    MEMORY = "memory"
+    SQLITE = "sqlite"
+    POSTGRES = "postgres"
+
+
+class Settings(BaseSettings):
+    """Typed application configuration with safe defaults."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    # --- Application ---
+    app_name: str = "mesa-proprietaria-ia"
+    app_env: str = "development"
+    log_level: str = "INFO"
+    log_dir: str = "./logs"
+
+    # --- Safety / execution -------------------------------------------------
+    # Hard safety default: live trading is OFF.
+    live_trading_enabled: bool = Field(default=False)
+    execution_mode: ExecutionMode = Field(default=ExecutionMode.PAPER)
+
+    # --- Repositories ---
+    repository_backend: RepositoryBackend = Field(default=RepositoryBackend.MEMORY)
+    sqlite_path: str = "./data_store/mesa.db"
+
+    # --- PostgreSQL (only used when repository_backend == postgres) ---
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_db: str = "mesa"
+    postgres_user: str = "mesa"
+    postgres_password: str = ""
+    database_url: str = ""
+
+    # --- LLM provider (agents use mock responses by default; Phase 3) ---
+    # "mock" keeps the system fully offline. "anthropic" requires llm_api_key
+    # (or ANTHROPIC_API_KEY in the environment) and the `anthropic` SDK.
+    llm_provider: str = "mock"
+    llm_model: str = "claude-opus-4-8"
+    llm_api_key: str = ""
+
+    # --- Market data provider ----------------------------------------------
+    # "mock" (default) uses the deterministic synthetic feed and stays fully
+    # offline. "alpaca" pulls real daily OHLCV bars from Alpaca Market Data and
+    # requires MARKET_DATA_API_KEY / MARKET_DATA_API_SECRET (env only — never in
+    # code). If a real provider is selected but misconfigured or unreachable, the
+    # feed FAILS CLOSED (raises) rather than silently inventing prices.
+    market_data_provider: str = "mock"
+    market_data_api_key: str = ""
+    market_data_api_secret: str = ""
+    market_data_base_url: str = "https://data.alpaca.markets"
+    # "iex" is Alpaca's free feed; "sip" is the paid consolidated feed.
+    market_data_feed: str = "iex"
+
+    @property
+    def market_data_is_real(self) -> bool:
+        return self.market_data_provider.strip().lower() not in ("", "mock")
+
+    @property
+    def market_data_configured(self) -> bool:
+        """True when a real provider is selected AND its credentials are present."""
+        return self.market_data_is_real and bool(
+            self.market_data_api_key and self.market_data_api_secret
+        )
+
+    # --- Admin panel auth (owner-operated, single user) ---
+    # These are LOCAL DEV DEFAULTS — override via .env (ADMIN_PASSWORD, AUTH_SECRET)
+    # before exposing the panel anywhere. They are placeholders, not real secrets.
+    admin_username: str = "owner"
+    admin_password: str = "change-me-now"
+    auth_secret: str = "dev-only-change-me"
+    token_ttl_minutes: int = 720
+    # Comma-separated origins allowed to call the API (the Next.js dev server).
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    # Optional regex (e.g. https://.*\.onrender\.com) so the deployed panel is
+    # allowed without manually pasting its exact URL.
+    cors_origin_regex: str = ""
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
+    # --- Risk policy overrides (defaults mirror risk/policy.py) ---
+    risk_max_risk_per_trade_pct: float = 1.0
+    risk_max_position_size_pct: float = 2.0
+    risk_max_daily_loss_pct: float = 2.0
+    risk_max_weekly_loss_pct: float = 5.0
+    risk_max_open_positions: int = 3
+    risk_max_total_exposure_pct: float = 20.0
+
+    @property
+    def is_live_trading_allowed(self) -> bool:
+        """Live trading requires BOTH the flag and paper mode being turned off.
+
+        This is intentionally conservative: the default configuration can never
+        place a live order.
+        """
+        return self.live_trading_enabled and self.execution_mode is ExecutionMode.LIVE
+
+    @property
+    def effective_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        return (
+            f"postgresql://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Cached settings accessor (one instance per process)."""
+    return Settings()

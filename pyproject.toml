@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mesa-proprietaria-ia"
+version = "0.1.0"
+description = "Mesa Proprietária com IA — proprietary AI-powered trading desk (research, backtesting, paper trading). Owner capital only. No live trading by default."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "Mesa Proprietária com IA" }]
+
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.1",
+    "httpx>=0.26",
+    "streamlit>=1.30",
+]
+
+[project.optional-dependencies]
+# Heavier infra deps are NOT required for the Sprint 1 MVP (in-memory repos are the default).
+# They are listed here for forward compatibility (Phase 9+).
+infra = [
+    "psycopg[binary]>=3.1",
+    "redis>=5.0",
+    "celery>=5.3",
+    "pyarrow>=15.0",
+    "duckdb>=0.10",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "mypy>=1.8",
+    "ruff>=0.3",
+]
+# Optional charting for scripts/plot_simulation.py (not required by tests/app).
+viz = [
+    "matplotlib>=3.7",
+]
+
+[tool.setuptools]
+# The project uses top-level package directories (app/, core/, risk/, ...).
+packages = [
+    "app", "core",
+    "data", "data.ingestion", "data.normalization", "data.storage",
+    "features", "agents", "memos", "signals", "backtest",
+    "risk", "execution", "portfolio", "api", "api.routes",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+disallow_untyped_defs = true
+ignore_missing_imports = true

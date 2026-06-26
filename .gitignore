@@ -137,3 +137,32 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Mesa Proprietária com IA — keep the example env template tracked
+!.env.example
+
+# Local audit log output
+logs/
+
+# Generated pipeline artifacts
+artifacts/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local SQLite datastore
+data_store/
+*.db
+*.sqlite3
