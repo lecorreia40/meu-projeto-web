@@ -21,7 +21,8 @@ from agents.orchestrator import OrchestratorAgent
 from backtest.engine import BacktestEngine
 from core.events import EventType, Severity
 from core.logging import StructuredLogger, get_logger
-from data.ingestion.prices import MockPriceFeed
+from data.ingestion.feed_factory import build_price_feed
+from data.ingestion.prices import PriceFeed
 from data.market_schema import MarketBar
 from data.universe import SYMBOLS
 from execution.order_manager import OrderManager
@@ -69,9 +70,10 @@ class MultiDaySimulation:
         max_holding_days: int = 20,
         policy: RiskPolicy | None = None,
         live_trading_enabled: bool = False,
+        feed: PriceFeed | None = None,
         logger: StructuredLogger | None = None,
     ) -> None:
-        self.feed = MockPriceFeed(seed=seed)
+        self.feed = feed or build_price_feed(seed=seed)
         self.days = days
         self.warmup = warmup
         self.account_equity = account_equity

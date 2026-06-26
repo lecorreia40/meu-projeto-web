@@ -7,7 +7,9 @@ import {
   CycleResult,
   DataSource,
   Decision,
+  EquityCurve,
   getDataSource,
+  getEquityCurve,
   getState,
   getToken,
   runCycle,
@@ -192,11 +194,131 @@ function RiskReward({ decisions }: { decisions: Decision[] }) {
   );
 }
 
+// ---- Conviction Ridge (per-agent confidence density across the universe) --
+function ConvictionRidge({ decisions }: { decisions: Decision[] }) {
+  // Group each agent's confidence values across all symbols.
+  const byAgent = new Map<string, number[]>();
+  for (const d of decisions) {
+    for (const a of d.agents) {
+      const arr = byAgent.get(a.agent) ?? [];
+      arr.push(a.confidence);
+      byAgent.set(a.agent, arr);
+    }
+  }
+  const agents = [...byAgent.entries()];
+  if (agents.length === 0) return <div className="cr-empty">Sem opiniões para destilar.</div>;
+
+  const W = 640, rowH = 58, PAD = 90, top = 14;
+  const H = top + agents.length * rowH + 24;
+  const grid = 120;            // x-resolution
+  const h = 0.07;              // kernel bandwidth
+  const xToPx = (x: number) => PAD + x * (W - PAD - 20);
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="cr-svg" role="img" aria-label="Densidade de convicção por agente">
+        {[0, 0.25, 0.5, 0.75, 1].map((g) => (
+          <g key={g}>
+            <line x1={xToPx(g)} x2={xToPx(g)} y1={top} y2={H - 22} stroke="#16202f" />
+            <text x={xToPx(g)} y={H - 8} fill="#5e6b7e" fontSize="10" textAnchor="middle" className="cr-mono">{g.toFixed(2)}</text>
+          </g>
+        ))}
+        <text x={xToPx(0.5)} y={H - 8} fill="#5e6b7e" fontSize="0" />
+        {agents.map(([name, vals], i) => {
+          const baseY = top + i * rowH + rowH - 8;
+          const amp = rowH * 0.9;
+          // Kernel density over the grid, normalized to its own peak.
+          const dens: number[] = [];
+          for (let k = 0; k <= grid; k++) {
+            const x = k / grid;
+            let s = 0;
+            for (const v of vals) s += Math.exp(-(((x - v) / h) ** 2));
+            dens.push(s);
+          }
+          const peak = Math.max(...dens, 1e-9);
+          let path = `M ${xToPx(0)} ${baseY}`;
+          for (let k = 0; k <= grid; k++) {
+            path += ` L ${xToPx(k / grid).toFixed(1)} ${(baseY - (dens[k] / peak) * amp).toFixed(1)}`;
+          }
+          path += ` L ${xToPx(1)} ${baseY} Z`;
+          const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+          const hue = 190 + i * 22;
+          return (
+            <g key={name}>
+              <path d={path} fill={`hsla(${hue},85%,60%,0.22)`} stroke={`hsl(${hue},85%,62%)`} strokeWidth={1.4} />
+              <line x1={xToPx(mean)} x2={xToPx(mean)} y1={baseY - amp} y2={baseY} stroke={`hsl(${hue},85%,70%)`} strokeDasharray="3 3" opacity={0.7} />
+              <text x={8} y={baseY - 4} fill="#c9d4e0" fontSize="11" fontWeight={600}>{name}</text>
+              <text x={8} y={baseY + 9} fill="#5e6b7e" fontSize="9.5" className="cr-mono">méd {mean.toFixed(2)} · n={vals.length}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="cr-legend"><span>Cada crista = como aquele agente espalha sua convicção pelos {decisions.length} ativos. Linha tracejada = média.</span></div>
+    </div>
+  );
+}
+
+// ---- Equity Curve (multi-day paper simulation) ----------------------------
+function EquityCurveChart({ data }: { data: EquityCurve }) {
+  const W = 920, H = 240, PAD = 52, padT = 16;
+  const pts = data.points;
+  if (pts.length < 2) return <div className="cr-empty">Série insuficiente.</div>;
+  const eq = pts.map((p) => p.equity);
+  const minY = Math.min(data.start_equity, ...eq);
+  const maxY = Math.max(data.start_equity, ...eq);
+  const sx = (i: number) => PAD + (i / (pts.length - 1)) * (W - PAD - 16);
+  const sy = (v: number) => padT + (1 - (v - minY) / (maxY - minY || 1)) * (H - padT - 30);
+
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${sx(i).toFixed(1)} ${sy(p.equity).toFixed(1)}`).join(" ");
+  const area = `${line} L ${sx(pts.length - 1).toFixed(1)} ${sy(minY).toFixed(1)} L ${sx(0).toFixed(1)} ${sy(minY).toFixed(1)} Z`;
+  const up = data.summary.total_return_pct >= 0;
+  const accent = up ? "#3fb950" : "#f85149";
+  const halts = pts.map((p, i) => ({ p, i })).filter((x) => x.p.halted);
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="cr-svg" role="img" aria-label="Curva de patrimônio">
+        <defs>
+          <linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={accent} stopOpacity="0.28" />
+            <stop offset="100%" stopColor={accent} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* start baseline */}
+        <line x1={PAD} x2={W - 16} y1={sy(data.start_equity)} y2={sy(data.start_equity)} stroke="#2b3a52" strokeDasharray="5 5" />
+        <text x={W - 16} y={sy(data.start_equity) - 5} fill="#5e6b7e" fontSize="10" textAnchor="end" className="cr-mono">
+          ${Math.round(data.start_equity).toLocaleString()} (início)
+        </text>
+        <path d={area} fill="url(#eqfill)" />
+        <path d={line} fill="none" stroke={accent} strokeWidth={2} />
+        {halts.map(({ i }) => (
+          <circle key={i} cx={sx(i)} cy={sy(pts[i].equity)} r={3} fill="#f85149">
+            <title>halt no dia {pts[i].day}</title>
+          </circle>
+        ))}
+        {/* y labels */}
+        <text x={8} y={sy(maxY) + 4} fill="#5e6b7e" fontSize="10" className="cr-mono">${Math.round(maxY).toLocaleString()}</text>
+        <text x={8} y={sy(minY)} fill="#5e6b7e" fontSize="10" className="cr-mono">${Math.round(minY).toLocaleString()}</text>
+      </svg>
+      <div className="cr-legend" style={{ gap: 18 }}>
+        <span style={{ color: accent }} className="cr-mono">retorno {up ? "+" : ""}{data.summary.total_return_pct.toFixed(2)}%</span>
+        <span className="cr-mono">drawdown máx {data.summary.max_drawdown_pct.toFixed(2)}%</span>
+        <span className="cr-mono">{data.summary.n_entries} entradas · {data.summary.n_exits} saídas</span>
+        <span className="cr-mono" style={{ color: data.summary.halt_days ? "#f85149" : "#8593a6" }}>
+          {data.summary.halt_days} dias em halt
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function ControlRoom() {
   const router = useRouter();
   const [state, setState] = useState<AdminState | null>(null);
   const [dataSource, setDataSource] = useState<DataSource | null>(null);
   const [result, setResult] = useState<CycleResult | null>(null);
+  const [equity, setEquity] = useState<EquityCurve | null>(null);
+  const [equityLoading, setEquityLoading] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
@@ -208,6 +330,7 @@ export default function ControlRoom() {
         const [s, ds] = await Promise.all([getState(), getDataSource()]);
         setState(s); setDataSource(ds);
         await run();
+        loadEquity();
       } catch (e) {
         const m = e instanceof Error ? e.message : "Erro";
         setError(m);
@@ -230,6 +353,17 @@ export default function ControlRoom() {
       setError(e instanceof Error ? e.message : "Erro");
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function loadEquity() {
+    setEquityLoading(true);
+    try {
+      setEquity(await getEquityCurve(42, 180, 60));
+    } catch {
+      /* non-blocking: the curve is secondary to the live snapshot */
+    } finally {
+      setEquityLoading(false);
     }
   }
 
@@ -306,6 +440,19 @@ export default function ControlRoom() {
           <div className="cr-loading">{running ? "Rodando o pipeline em todos os ativos…" : "Sem dados ainda."}</div>
         ) : (
           <>
+            {/* Equity curve (full width) */}
+            <div className="cr-panel full" style={{ marginBottom: 14 }}>
+              <div className="cr-h">
+                <h3>Curva de patrimônio · simulação multi-dia</h3>
+                <span className="hint">fim de cada dia · halts marcados em vermelho</span>
+              </div>
+              {equity ? (
+                <EquityCurveChart data={equity} />
+              ) : (
+                <div className="cr-loading">{equityLoading ? "Simulando dia a dia com corte por drawdown…" : "—"}</div>
+              )}
+            </div>
+
             <div className="cr-grid">
               {/* Lattice */}
               <div className="cr-panel">
@@ -349,6 +496,15 @@ export default function ControlRoom() {
                 </div>
                 <RiskReward decisions={result.decisions} />
               </div>
+            </div>
+
+            {/* Conviction ridge (full width) */}
+            <div className="cr-panel full" style={{ marginTop: 14 }}>
+              <div className="cr-h">
+                <h3>Cordilheira de convicção · densidade por agente</h3>
+                <span className="hint">como cada analista distribui sua confiança pelo universo</span>
+              </div>
+              <ConvictionRidge decisions={result.decisions} />
             </div>
 
             <div className="cr-foot">

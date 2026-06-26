@@ -315,6 +315,52 @@ def run_cycle(
     }
 
 
+# --- Equity curve (multi-day paper simulation) ------------------------------
+
+class EquityCurveRequest(BaseModel):
+    seed: int = 42
+    days: int = 180
+    warmup: int = 60
+
+
+@router.post("/admin/equity-curve")
+def equity_curve(
+    req: EquityCurveRequest,
+    _: str = Depends(require_auth),
+    cfg: RuntimeConfig = Depends(get_runtime_config),
+) -> dict[str, object]:
+    """Run a multi-day paper simulation and return the daily equity series.
+
+    Honest time series: each point is end-of-day paper equity, flagged when the
+    drawdown kill-switch halted new entries. Paper only; live trading disabled.
+    """
+    from app.multi_day import MultiDaySimulation
+
+    sim = MultiDaySimulation(
+        seed=req.seed, days=req.days, warmup=req.warmup, policy=cfg.policy()
+    )
+    result = sim.run()
+    start = sim.account_equity
+    points = [
+        {"day": day, "equity": round(equity, 2), "halted": halted,
+         "pnl_pct": round((equity / start - 1.0) * 100, 3)}
+        for (day, equity, halted) in sim.daily_log
+    ]
+    return {
+        "start_equity": start,
+        "points": points,
+        "summary": {
+            "days_traded": result.days_traded,
+            "n_entries": result.n_entries,
+            "n_exits": result.n_exits,
+            "halt_days": result.halt_days,
+            "final_equity": result.final_equity,
+            "total_return_pct": result.total_return_pct,
+            "max_drawdown_pct": result.max_drawdown_pct,
+        },
+    }
+
+
 # --- Read latest results (for the panel tables) -----------------------------
 
 def _read_jsonl(path: Path) -> list[dict]:

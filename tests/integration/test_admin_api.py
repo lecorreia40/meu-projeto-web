@@ -192,6 +192,24 @@ def test_decision_trace_reports_price_source(client: TestClient) -> None:
     assert any("MockPriceFeed" in s for s in sources)
 
 
+# --- Equity curve -----------------------------------------------------------
+
+def test_equity_curve_endpoint(client: TestClient) -> None:
+    r = client.post("/admin/equity-curve", json={"seed": 42, "days": 130, "warmup": 60},
+                    headers=_auth(client))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["start_equity"] == 100000.0
+    assert len(body["points"]) > 0
+    p = body["points"][0]
+    assert {"day", "equity", "halted", "pnl_pct"} <= set(p)
+    assert "max_drawdown_pct" in body["summary"]
+
+
+def test_equity_curve_requires_auth(client: TestClient) -> None:
+    assert client.post("/admin/equity-curve", json={}).status_code == 401
+
+
 # --- Accounts ---------------------------------------------------------------
 
 def test_accounts_endpoint_test_active_real_gated(client: TestClient) -> None:

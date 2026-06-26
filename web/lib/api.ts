@@ -294,3 +294,32 @@ export interface DataSource {
 }
 
 export const getDataSource = () => request<DataSource>("/admin/data-source");
+
+// --- Equity curve ----------------------------------------------------------
+
+export interface EquityPoint {
+  day: number;
+  equity: number;
+  halted: boolean;
+  pnl_pct: number;
+}
+
+export interface EquityCurve {
+  start_equity: number;
+  points: EquityPoint[];
+  summary: {
+    days_traded: number;
+    n_entries: number;
+    n_exits: number;
+    halt_days: number;
+    final_equity: number;
+    total_return_pct: number;
+    max_drawdown_pct: number;
+  };
+}
+
+export const getEquityCurve = (seed = 42, days = 180, warmup = 60) =>
+  request<EquityCurve>("/admin/equity-curve", {
+    method: "POST",
+    body: JSON.stringify({ seed, days, warmup }),
+  });
