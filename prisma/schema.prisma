@@ -1068,6 +1068,33 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
+// Pricing catalog for firm subscription tiers. `key` matches the TenantPlan
+// enum so assigning a plan to a tenant just sets Tenant.plan, no FK churn.
+model Plan {
+  id               String       @id @default(cuid())
+  key              String       @unique // STARTER | FIRM | GROWTH | ENTERPRISE | WHITE_LABEL
+  name             String
+  description      String?
+  priceMonthly     Decimal      @db.Decimal(10, 2)
+  currency         String       @default("USD")
+  interval         PlanInterval @default(MONTHLY)
+  seats            Int? // included seats; null = unlimited
+  activeCasesLimit Int? // null = unlimited
+  features         Json         @default("[]") // string[]
+  isActive         Boolean      @default(true)
+  isPublic         Boolean      @default(true) // shown on public pricing
+  sortOrder        Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+enum PlanInterval {
+  MONTHLY
+  ANNUAL
+  PER_USER
+  CUSTOM
+}
+
 // ---------------------------------------------------------------------------
 // Risk & compliance
 // ---------------------------------------------------------------------------

@@ -47,6 +47,13 @@ export async function requirePermission(permission: string): Promise<CurrentUser
   return user;
 }
 
+/** Require platform-level administration (super admin). Redirects otherwise. */
+export async function requirePlatformAdmin(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!user.isPlatformAdmin && user.roleKey !== "super_admin") redirect(portalHome(user));
+  return user;
+}
+
 /** Which portal a user lands on after login. */
 export function portalHome(user: CurrentUser): string {
   if (user.isPlatformAdmin || user.roleKey === "super_admin") return "/admin";

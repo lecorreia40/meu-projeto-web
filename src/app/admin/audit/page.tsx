@@ -1,7 +1,9 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/permissions";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { auditLabel } from "@/lib/audit-labels";
 
 export default async function AuditLogPage() {
   await requireUser();
@@ -40,7 +42,12 @@ export default async function AuditLogPage() {
                   </TableCell>
                   <TableCell className="text-xs">{log.actor?.email ?? "system"}</TableCell>
                   <TableCell className="text-xs text-slate-500">{log.tenant?.name ?? "-"}</TableCell>
-                  <TableCell className="font-mono text-xs">{log.action}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <Badge variant={auditLabel(log.action).tone} className="w-fit">{auditLabel(log.action).label}</Badge>
+                      <span className="font-mono text-[10px] text-slate-400">{log.action}</span>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-xs text-slate-500">
                     {log.entity}{log.entityId ? ` (${log.entityId.slice(0, 10)})` : ""}
                   </TableCell>

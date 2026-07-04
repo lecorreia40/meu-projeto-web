@@ -2,7 +2,9 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/permissions";
 import { StatCard } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { auditLabel } from "@/lib/audit-labels";
+import { formatDate, humanize } from "@/lib/utils";
 
 export default async function AdminOverview() {
   await requireUser();
@@ -34,17 +36,20 @@ export default async function AdminOverview() {
       <Card>
         <CardHeader><CardTitle>Recent audit activity</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          {recentAudit.map((log) => (
-            <div key={log.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3 text-sm">
-              <div>
-                <span className="font-medium">{log.action}</span>
-                <span className="text-slate-500"> · {log.entity}{log.entityId ? ` (${log.entityId.slice(0, 8)}…)` : ""}</span>
+          {recentAudit.map((log) => {
+            const { label, tone } = auditLabel(log.action);
+            return (
+              <div key={log.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 p-3 text-sm">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Badge variant={tone}>{label}</Badge>
+                  <span className="truncate text-slate-500">{humanize(log.entity)}</span>
+                </div>
+                <div className="whitespace-nowrap text-xs text-slate-500">
+                  {log.actor?.name ?? "system"} · {formatDate(log.createdAt)}
+                </div>
               </div>
-              <div className="text-xs text-slate-500">
-                {log.actor?.name ?? "system"} · {formatDate(log.createdAt)}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
     </div>
