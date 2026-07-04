@@ -12,7 +12,10 @@ export const dynamic = "force-dynamic";
 
 export default async function IntakePage() {
   const questions = await getIntakeQuestions();
-  const t = getDictionary(await getLocale());
+  const locale = await getLocale();
+  const t = getDictionary(locale);
+  const label = (q: { label: string; labelPt: string | null; labelEs: string | null }) =>
+    locale === "pt" ? q.labelPt ?? q.label : locale === "es" ? q.labelEs ?? q.label : q.label;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -25,18 +28,14 @@ export default async function IntakePage() {
         </Link>
       </header>
       <main className="mx-auto max-w-3xl px-6 pb-16">
-        <h1 className="text-2xl font-bold tracking-tight">Free readiness assessment</h1>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
-          Answer a few questions about your profile and goals. The result is an educational
-          readiness overview, not legal advice: any suggested paths are drafts that require
-          review by a licensed attorney.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t.intake.title}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.intake.subtitle}</p>
         <div className="mt-8">
           <IntakeWizard
             questions={questions.map((q) => ({
               key: q.key,
               block: q.block,
-              label: q.label,
+              label: label(q),
               fieldType: q.fieldType,
               options: (q.options as string[] | null) ?? null,
               required: q.required,
@@ -44,6 +43,7 @@ export default async function IntakePage() {
               dependsOnValue: q.dependsOnValue,
             }))}
             startLabel={t.start.create}
+            labels={t.intake}
           />
         </div>
       </main>

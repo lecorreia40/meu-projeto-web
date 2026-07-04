@@ -27,11 +27,6 @@ export default async function LoginPage() {
             invalid: t.login.invalid,
           }}
         />
-        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-xs leading-relaxed text-slate-500">
-          <p className="mb-1 font-semibold text-slate-600">Demo accounts (password: demo1234)</p>
-          <p>owner@martinezlaw.dev · attorney@martinezlaw.dev · paralegal@martinezlaw.dev</p>
-          <p>client@example.dev · partner@cpafirm.dev · admin@visaops.dev</p>
-        </div>
       </div>
     </div>
   );
