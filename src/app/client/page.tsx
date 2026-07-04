@@ -2,6 +2,8 @@ import { requireUser } from "@/lib/permissions";
 import { getMyCases } from "./data";
 import { caseProgress, clientFacingStatus } from "@/lib/case-status";
 import { formatDate } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -9,14 +11,14 @@ import { ChecklistStatusBadge } from "@/components/status-badge";
 
 export default async function ClientHome() {
   const user = await requireUser();
+  const locale = await getLocale();
+  const c = getDictionary(locale).client;
   const cases = await getMyCases(user);
 
   if (cases.length === 0) {
     return (
       <Card>
-        <CardContent className="p-8 text-center text-sm text-slate-500">
-          No case is linked to your account yet. Your law firm will invite you when your case opens.
-        </CardContent>
+        <CardContent className="p-8 text-center text-sm text-slate-500">{c.noCase}</CardContent>
       </Card>
     );
   }
@@ -24,8 +26,8 @@ export default async function ClientHome() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">My Case</h1>
-        <p className="text-sm text-slate-500">Hello, {user.name.split(" ")[0]}. Here is where your process stands.</p>
+        <h1 className="text-xl font-bold tracking-tight">{c.myCase}</h1>
+        <p className="text-sm text-slate-500">{c.greeting}, {user.name.split(" ")[0]}. {c.standsIntro}</p>
       </div>
 
       {cases.map((kase) => {
@@ -40,13 +42,13 @@ export default async function ClientHome() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{kase.visaCategory.name}</CardTitle>
-                <CardDescription>Case {kase.caseNumberInternal}</CardDescription>
+                <CardDescription>{c.caseLabel} {kase.caseNumberInternal}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="font-medium text-slate-700">
-                      You are at stage: <span className="text-brand-700">{clientFacingStatus(kase.status)}</span>
+                      {c.youAreAtStage}: <span className="text-brand-700">{clientFacingStatus(kase.status, locale)}</span>
                     </span>
                     <span className="text-slate-500">{progress}%</span>
                   </div>
@@ -54,25 +56,25 @@ export default async function ClientHome() {
                 </div>
                 <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <div className="text-xs text-slate-500">Next action</div>
+                    <div className="text-xs text-slate-500">{c.nextAction}</div>
                     <div className="font-medium">
                       {pendingItems.length > 0
-                        ? `Send: ${pendingItems[0].label}`
-                        : kase.nextAction ?? "No action needed from you"}
+                        ? `${c.sendPrefix}: ${pendingItems[0].label}`
+                        : kase.nextAction ?? c.noActionFromYou}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Deadline</div>
+                    <div className="text-xs text-slate-500">{c.deadline}</div>
                     <div className="font-medium">{formatDate(kase.nextDeadlineAt)}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Currently responsible</div>
+                    <div className="text-xs text-slate-500">{c.responsible}</div>
                     <div className="font-medium">
-                      {pendingItems.length > 0 || myOpenTasks.length > 0 ? "You" : "Your legal team"}
+                      {pendingItems.length > 0 || myOpenTasks.length > 0 ? c.you : c.yourTeam}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Last update</div>
+                    <div className="text-xs text-slate-500">{c.lastUpdate}</div>
                     <div className="font-medium">{lastEvent ? lastEvent.title : "-"}</div>
                   </div>
                 </div>
@@ -81,8 +83,8 @@ export default async function ClientHome() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Documents to send</CardTitle>
-                <CardDescription>Upload each item on the Documents page.</CardDescription>
+                <CardTitle>{c.documentsToSend}</CardTitle>
+                <CardDescription>{c.uploadOnDocs}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {checklist?.items.map((item) => (
@@ -92,19 +94,19 @@ export default async function ClientHome() {
                   </div>
                 ))}
                 {(!checklist || checklist.items.length === 0) && (
-                  <p className="text-sm text-slate-500">Your document list will appear here.</p>
+                  <p className="text-sm text-slate-500">{c.docListWillAppear}</p>
                 )}
               </CardContent>
             </Card>
 
             {myOpenTasks.length > 0 && (
               <Card>
-                <CardHeader><CardTitle>Action needed</CardTitle></CardHeader>
+                <CardHeader><CardTitle>{c.actionNeeded}</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {myOpenTasks.map((task) => (
                     <div key={task.id} className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 p-3">
                       <span className="text-sm font-medium">{task.title}</span>
-                      <Badge variant="warning">due {formatDate(task.dueAt)}</Badge>
+                      <Badge variant="warning">{getDictionary(locale).ui.due} {formatDate(task.dueAt)}</Badge>
                     </div>
                   ))}
                 </CardContent>

@@ -1,9 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { STATUS_COLORS } from "@/lib/case-status";
-import { humanize, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { tEnum } from "@/lib/i18n/enum-labels";
 import type { CaseStatus, RiskLevel, TaskStatus, ChecklistItemStatus, DocumentStatus } from "@prisma/client";
 
-export function CaseStatusBadge({ status }: { status: CaseStatus }) {
+export async function CaseStatusBadge({ status }: { status: CaseStatus }) {
+  const locale = await getLocale();
   return (
     <span
       className={cn(
@@ -11,7 +14,7 @@ export function CaseStatusBadge({ status }: { status: CaseStatus }) {
         STATUS_COLORS[status] ?? "bg-slate-100 text-slate-700"
       )}
     >
-      {humanize(status)}
+      {tEnum("caseStatus", status, locale)}
     </span>
   );
 }
@@ -24,8 +27,10 @@ const RISK_VARIANT: Record<RiskLevel, "default" | "success" | "warning" | "dange
   CRITICAL: "danger",
 };
 
-export function RiskBadge({ level }: { level: RiskLevel }) {
-  return <Badge variant={RISK_VARIANT[level]}>Risk: {humanize(level)}</Badge>;
+export async function RiskBadge({ level }: { level: RiskLevel }) {
+  const locale = await getLocale();
+  const riskWord: Record<string, string> = { en: "Risk", pt: "Risco", es: "Riesgo" };
+  return <Badge variant={RISK_VARIANT[level]}>{riskWord[locale] ?? "Risk"}: {tEnum("riskLevel", level, locale)}</Badge>;
 }
 
 const TASK_VARIANT: Record<TaskStatus, "default" | "info" | "warning" | "success" | "outline"> = {
@@ -36,8 +41,9 @@ const TASK_VARIANT: Record<TaskStatus, "default" | "info" | "warning" | "success
   CANCELLED: "outline",
 };
 
-export function TaskStatusBadge({ status }: { status: TaskStatus }) {
-  return <Badge variant={TASK_VARIANT[status]}>{humanize(status)}</Badge>;
+export async function TaskStatusBadge({ status }: { status: TaskStatus }) {
+  const locale = await getLocale();
+  return <Badge variant={TASK_VARIANT[status]}>{tEnum("taskStatus", status, locale)}</Badge>;
 }
 
 const CHECKLIST_VARIANT: Record<ChecklistItemStatus, "default" | "info" | "warning" | "success" | "danger" | "outline"> = {
@@ -49,8 +55,9 @@ const CHECKLIST_VARIANT: Record<ChecklistItemStatus, "default" | "info" | "warni
   WAIVED: "outline",
 };
 
-export function ChecklistStatusBadge({ status }: { status: ChecklistItemStatus }) {
-  return <Badge variant={CHECKLIST_VARIANT[status]}>{humanize(status)}</Badge>;
+export async function ChecklistStatusBadge({ status }: { status: ChecklistItemStatus }) {
+  const locale = await getLocale();
+  return <Badge variant={CHECKLIST_VARIANT[status]}>{tEnum("checklistStatus", status, locale)}</Badge>;
 }
 
 const DOC_VARIANT: Record<DocumentStatus, "default" | "info" | "warning" | "success" | "danger" | "outline"> = {
@@ -62,6 +69,7 @@ const DOC_VARIANT: Record<DocumentStatus, "default" | "info" | "warning" | "succ
   ARCHIVED: "outline",
 };
 
-export function DocumentStatusBadge({ status }: { status: DocumentStatus }) {
-  return <Badge variant={DOC_VARIANT[status]}>{humanize(status)}</Badge>;
+export async function DocumentStatusBadge({ status }: { status: DocumentStatus }) {
+  const locale = await getLocale();
+  return <Badge variant={DOC_VARIANT[status]}>{tEnum("documentStatus", status, locale)}</Badge>;
 }

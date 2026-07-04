@@ -27,45 +27,55 @@ export function caseProgress(status: CaseStatus): number {
   return Math.round(((idx + 1) / PIPELINE.length) * 100);
 }
 
-/** Plain-language status for the client portal - no legal jargon. */
-export function clientFacingStatus(status: CaseStatus): string {
+type Loc = "en" | "pt" | "es";
+
+const CLIENT_STATUS: Record<string, { en: string; pt: string; es: string }> = {
+  GETTING_TO_KNOW: { en: "Getting to know your case", pt: "Conhecendo seu caso", es: "Conociendo su caso" },
+  INITIAL_REVIEW: { en: "Under initial review", pt: "Em revisão inicial", es: "En revisión inicial" },
+  ENGAGEMENT: { en: "Engagement confirmed", pt: "Contrato confirmado", es: "Contrato confirmado" },
+  WAITING_DOCS: { en: "Waiting for your documents", pt: "Aguardando seus documentos", es: "Esperando sus documentos" },
+  IN_ATTORNEY_REVIEW: { en: "In review by the attorney", pt: "Em revisão pelo advogado", es: "En revisión por el abogado" },
+  CLIENT_REVIEW: { en: "Action needed: your review", pt: "Ação necessária: sua revisão", es: "Acción necesaria: su revisión" },
+  FILING_READY: { en: "Ready for filing", pt: "Pronto para protocolo", es: "Listo para presentar" },
+  FILED: { en: "Filed", pt: "Protocolado", es: "Presentado" },
+  APPOINTMENT: { en: "Appointment stage", pt: "Etapa de agendamento", es: "Etapa de cita" },
+  RFE: { en: "Additional information requested", pt: "Informação adicional solicitada", es: "Información adicional solicitada" },
+  APPROVED: { en: "Approved", pt: "Aprovado", es: "Aprobado" },
+  DENIED: { en: "Decision received", pt: "Decisão recebida", es: "Decisión recibida" },
+  CLOSED: { en: "Closed", pt: "Encerrado", es: "Cerrado" },
+  MONITORING: { en: "Approved - compliance monitoring", pt: "Aprovado - monitoramento de compliance", es: "Aprobado - monitoreo de cumplimiento" },
+  IN_PROGRESS: { en: "In progress", pt: "Em andamento", es: "En progreso" },
+};
+
+function clientKey(status: CaseStatus): string {
   switch (status) {
     case "INTAKE_STARTED":
-    case "INTAKE_COMPLETE":
-      return "Getting to know your case";
+    case "INTAKE_COMPLETE": return "GETTING_TO_KNOW";
     case "INITIAL_REVIEW":
-    case "PROPOSAL_SENT":
-      return "Under initial review";
-    case "ENGAGEMENT_SIGNED":
-      return "Engagement confirmed";
-    case "DOCUMENT_COLLECTION":
-      return "Waiting for your documents";
+    case "PROPOSAL_SENT": return "INITIAL_REVIEW";
+    case "ENGAGEMENT_SIGNED": return "ENGAGEMENT";
+    case "DOCUMENT_COLLECTION": return "WAITING_DOCS";
     case "EVIDENCE_REVIEW":
     case "DRAFTING":
-    case "ATTORNEY_REVIEW":
-      return "In review by the attorney";
-    case "CLIENT_REVIEW":
-      return "Action needed: your review";
-    case "FILING_READY":
-      return "Ready for filing";
+    case "ATTORNEY_REVIEW": return "IN_ATTORNEY_REVIEW";
+    case "CLIENT_REVIEW": return "CLIENT_REVIEW";
+    case "FILING_READY": return "FILING_READY";
     case "FILED":
-    case "RECEIPT_RECEIVED":
-      return "Filed";
-    case "BIOMETRICS_INTERVIEW":
-      return "Appointment stage";
-    case "RFE_NOID":
-      return "Additional information requested";
-    case "APPROVED":
-      return "Approved";
-    case "DENIED":
-      return "Decision received";
-    case "CLOSED":
-      return "Closed";
-    case "POST_APPROVAL_MONITORING":
-      return "Approved - compliance monitoring";
-    default:
-      return "In progress";
+    case "RECEIPT_RECEIVED": return "FILED";
+    case "BIOMETRICS_INTERVIEW": return "APPOINTMENT";
+    case "RFE_NOID": return "RFE";
+    case "APPROVED": return "APPROVED";
+    case "DENIED": return "DENIED";
+    case "CLOSED": return "CLOSED";
+    case "POST_APPROVAL_MONITORING": return "MONITORING";
+    default: return "IN_PROGRESS";
   }
+}
+
+/** Plain-language status for the client portal, localized. No legal jargon. */
+export function clientFacingStatus(status: CaseStatus, locale: string = "en"): string {
+  const entry = CLIENT_STATUS[clientKey(status)];
+  return entry[(locale as Loc) in entry ? (locale as Loc) : "en"];
 }
 
 export const STATUS_COLORS: Record<string, string> = {

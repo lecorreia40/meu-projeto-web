@@ -1,6 +1,8 @@
 import { requireUser } from "@/lib/permissions";
 import { getMyCases } from "../data";
 import { uploadDocumentAction } from "@/server/actions/documents";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,15 +11,16 @@ import { formatDate } from "@/lib/utils";
 
 export default async function ClientDocumentsPage() {
   const user = await requireUser();
+  const locale = await getLocale();
+  const t = getDictionary(locale);
+  const c = t.client;
   const cases = await getMyCases(user);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Documents</h1>
-        <p className="text-sm text-slate-500">
-          Upload each requested document. Your legal team reviews everything you send.
-        </p>
+        <h1 className="text-xl font-bold tracking-tight">{c.documentsTitle}</h1>
+        <p className="text-sm text-slate-500">{c.documentsSub}</p>
       </div>
 
       {cases.map((kase) => {
@@ -26,8 +29,8 @@ export default async function ClientDocumentsPage() {
           <div key={kase.id} className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Requested documents · {kase.visaCategory.key}</CardTitle>
-                <CardDescription>PDF, JPG, PNG or DOCX up to 20MB.</CardDescription>
+                <CardTitle>{c.requestedDocs} · {kase.visaCategory.key}</CardTitle>
+                <CardDescription>{c.fileHint}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {checklist?.items.map((item) => (
@@ -42,7 +45,7 @@ export default async function ClientDocumentsPage() {
                         <input type="hidden" name="caseId" value={kase.id} />
                         <input type="hidden" name="checklistItemId" value={item.id} />
                         <Input name="file" type="file" className="h-8 text-xs" required />
-                        <Button size="sm" variant="secondary" type="submit">Upload</Button>
+                        <Button size="sm" variant="secondary" type="submit">{t.ui.upload}</Button>
                       </form>
                     )}
                   </div>
@@ -51,9 +54,9 @@ export default async function ClientDocumentsPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>My uploads</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{c.myUploads}</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                {kase.documents.length === 0 && <p className="text-sm text-slate-500">No uploads yet.</p>}
+                {kase.documents.length === 0 && <p className="text-sm text-slate-500">{c.noUploads}</p>}
                 {kase.documents.map((doc) => (
                   <div key={doc.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
                     <div>

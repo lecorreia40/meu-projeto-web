@@ -37,7 +37,6 @@ export function AppShell({
         </div>
         <SidebarNav items={nav} />
         <div className="mt-auto hidden border-t border-slate-100 px-5 py-4 lg:block">
-          <LanguageSwitcher locale={locale} className="mb-3" />
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
               {initials(user.name)}
@@ -59,7 +58,7 @@ export function AppShell({
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur">
           <div className="text-sm text-slate-500">{user.tenantName ?? "Platform"}</div>
           <div className="flex items-center gap-3">
-            <LanguageSwitcher locale={locale} className="lg:hidden" />
+            <LanguageSwitcher locale={locale} />
             <form action={logoutAction} className="lg:hidden">
               <button className="text-xs text-slate-500" type="submit">{signOutLabel}</button>
             </form>
