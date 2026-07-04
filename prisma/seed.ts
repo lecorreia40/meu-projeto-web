@@ -455,6 +455,38 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // Plans & pricing catalog
+  // -------------------------------------------------------------------------
+  console.log("Seeding plans...");
+  const PLANS = [
+    { key: "STARTER", name: "Starter", description: "Solo attorney getting started", priceMonthly: 49, interval: "MONTHLY", seats: 1, activeCasesLimit: 15, sortOrder: 0,
+      features: ["1 user", "Up to 15 active cases", "CRM and intake", "Document vault", "Email support"] },
+    { key: "FIRM", name: "Firm", description: "Small immigration practice", priceMonthly: 149, interval: "MONTHLY", seats: 5, activeCasesLimit: 75, sortOrder: 1,
+      features: ["Up to 5 users", "Up to 75 active cases", "Attorney approval gates", "Partner assignments", "Priority support"] },
+    { key: "GROWTH", name: "Growth", description: "Growing multi-attorney firm", priceMonthly: 399, interval: "MONTHLY", seats: 15, activeCasesLimit: null, sortOrder: 2,
+      features: ["Up to 15 users", "Unlimited active cases", "Automations", "Billing and invoicing", "Reports and analytics"] },
+    { key: "ENTERPRISE", name: "Enterprise", description: "Multi-office and high volume", priceMonthly: 999, interval: "MONTHLY", seats: null, activeCasesLimit: null, sortOrder: 3,
+      features: ["Unlimited users", "Multi-office", "SSO", "Advanced audit and retention", "API access", "Dedicated support"] },
+    { key: "WHITE_LABEL", name: "White Label", description: "Own domain and branding", priceMonthly: 1999, interval: "MONTHLY", seats: null, activeCasesLimit: null, sortOrder: 4,
+      features: ["Everything in Enterprise", "Custom domain", "Custom branding", "Client portal white labeling"] },
+  ] as const;
+  for (const p of PLANS) {
+    await prisma.plan.upsert({
+      where: { key: p.key },
+      update: {
+        name: p.name, description: p.description, priceMonthly: p.priceMonthly,
+        interval: p.interval as never, seats: p.seats ?? null,
+        activeCasesLimit: p.activeCasesLimit ?? null, features: p.features as never, sortOrder: p.sortOrder,
+      },
+      create: {
+        key: p.key, name: p.name, description: p.description, priceMonthly: p.priceMonthly,
+        currency: "USD", interval: p.interval as never, seats: p.seats ?? null,
+        activeCasesLimit: p.activeCasesLimit ?? null, features: p.features as never, sortOrder: p.sortOrder,
+      },
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Demo tenant + users
   // -------------------------------------------------------------------------
   console.log("Seeding demo tenant and users...");
