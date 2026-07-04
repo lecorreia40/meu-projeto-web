@@ -1,6 +1,5 @@
 import { ShieldCheck } from "lucide-react";
 import { LoginForm } from "./login-form";
-import { LanguageSwitcher } from "@/components/language-switcher";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 
@@ -19,7 +18,6 @@ export default async function LoginPage() {
           </div>
           <h1 className="text-xl font-bold tracking-tight">VisaOps</h1>
           <p className="text-sm text-slate-500">{t.login.title}</p>
-          <LanguageSwitcher locale={locale} className="mt-1" />
         </div>
         <LoginForm
           labels={{
