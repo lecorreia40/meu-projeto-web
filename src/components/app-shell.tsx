@@ -2,17 +2,24 @@ import { ShieldCheck } from "lucide-react";
 import type { CurrentUser } from "@/lib/auth";
 import { initials } from "@/lib/utils";
 import { SidebarNav, type NavItem } from "@/components/sidebar-nav";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { logoutAction } from "@/app/(auth)/actions";
 
 export function AppShell({
   user,
   nav,
   portalLabel,
+  locale,
+  signOutLabel,
+  disclaimer,
   children,
 }: {
   user: CurrentUser;
   nav: NavItem[];
   portalLabel: string;
+  locale: string;
+  signOutLabel: string;
+  disclaimer: string;
   children: React.ReactNode;
 }) {
   return (
@@ -30,6 +37,7 @@ export function AppShell({
         </div>
         <SidebarNav items={nav} />
         <div className="mt-auto hidden border-t border-slate-100 px-5 py-4 lg:block">
+          <LanguageSwitcher locale={locale} className="mb-3" />
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
               {initials(user.name)}
@@ -41,7 +49,7 @@ export function AppShell({
           </div>
           <form action={logoutAction} className="mt-3">
             <button className="text-xs text-slate-500 hover:text-slate-800" type="submit">
-              Sign out
+              {signOutLabel}
             </button>
           </form>
         </div>
@@ -49,18 +57,17 @@ export function AppShell({
 
       <div className="flex-1">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/90 px-5 py-3 backdrop-blur">
-          <div className="text-sm text-slate-500">
-            {user.tenantName ?? "Platform"}
+          <div className="text-sm text-slate-500">{user.tenantName ?? "Platform"}</div>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher locale={locale} className="lg:hidden" />
+            <form action={logoutAction} className="lg:hidden">
+              <button className="text-xs text-slate-500" type="submit">{signOutLabel}</button>
+            </form>
           </div>
-          <form action={logoutAction} className="lg:hidden">
-            <button className="text-xs text-slate-500" type="submit">Sign out</button>
-          </form>
         </header>
         <main className="mx-auto max-w-6xl p-4 sm:p-6">{children}</main>
         <footer className="mx-auto max-w-6xl px-6 pb-6 text-[11px] leading-relaxed text-slate-400">
-          This platform organizes and tracks immigration processes. It does not provide legal
-          advice - immigration legal advice must come from a licensed attorney or accredited
-          representative.
+          {disclaimer}
         </footer>
       </div>
     </div>
