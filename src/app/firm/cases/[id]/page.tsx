@@ -73,15 +73,20 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
             {kase.company ? ` · ${kase.company.name}` : ""}
           </p>
         </div>
-        {can(user, "case.change_status") && (
-          <form action={changeCaseStatusAction} className="flex items-center gap-2">
-            <input type="hidden" name="caseId" value={kase.id} />
-            <Select name="status" defaultValue={kase.status} className="w-56">
-              {ALL_STATUSES.map((s) => <option key={s} value={s}>{tEnum("caseStatus", s, locale)}</option>)}
-            </Select>
-            <Button type="submit" variant="secondary">{f.updateStatus}</Button>
-          </form>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <a href={`/firm/cases/${kase.id}/form`}>
+            <Button variant="secondary" type="button">{f.openForm}</Button>
+          </a>
+          {can(user, "case.change_status") && (
+            <form action={changeCaseStatusAction} className="flex items-center gap-2">
+              <input type="hidden" name="caseId" value={kase.id} />
+              <Select name="status" defaultValue={kase.status} className="w-56">
+                {ALL_STATUSES.map((s) => <option key={s} value={s}>{tEnum("caseStatus", s, locale)}</option>)}
+              </Select>
+              <Button type="submit" variant="secondary">{f.updateStatus}</Button>
+            </form>
+          )}
+        </div>
       </div>
 
       <Card>

@@ -360,6 +360,8 @@ model Case {
   nextAction            String?
   riskLevel             RiskLevel  @default(UNKNOWN)
   billingStatus         BillingStatus @default(PENDING)
+  // Structured, per-visa form answers (validated), keyed by field key.
+  formData              Json       @default("{}")
   deletedAt             DateTime?
   createdAt             DateTime   @default(now())
   updatedAt             DateTime   @updatedAt
