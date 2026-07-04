@@ -6,8 +6,10 @@ import type { NavItem } from "@/components/sidebar-nav";
 const NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: "dashboard" },
   { href: "/admin/tenants", label: "Tenants", icon: "tenants" },
+  { href: "/admin/users", label: "Users", icon: "users" },
   { href: "/admin/visa-categories", label: "Visa Categories", icon: "shield" },
   { href: "/admin/audit", label: "Audit Log", icon: "audit" },
+  { href: "/help", label: "Help", icon: "briefcase" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

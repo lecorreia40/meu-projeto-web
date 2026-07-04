@@ -13,6 +13,7 @@ const NAV: NavItem[] = [
   { href: "/firm/partners", label: "Partners", icon: "partners" },
   { href: "/firm/billing", label: "Billing", icon: "billing" },
   { href: "/firm/compliance", label: "Compliance", icon: "compliance" },
+  { href: "/help", label: "Help", icon: "briefcase" },
 ];
 
 export default async function FirmLayout({ children }: { children: React.ReactNode }) {

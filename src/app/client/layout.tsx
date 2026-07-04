@@ -10,6 +10,7 @@ const NAV: NavItem[] = [
   { href: "/client/messages", label: "Messages", icon: "messages" },
   { href: "/client/payments", label: "Payments", icon: "billing" },
   { href: "/client/timeline", label: "Timeline", icon: "timeline" },
+  { href: "/help", label: "Help", icon: "briefcase" },
 ];
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {

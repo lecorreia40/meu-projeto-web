@@ -6,6 +6,7 @@ import type { NavItem } from "@/components/sidebar-nav";
 const NAV: NavItem[] = [
   { href: "/partner", label: "Assigned Tasks", icon: "tasks" },
   { href: "/partner/documents", label: "Shared Documents", icon: "documents" },
+  { href: "/help", label: "Help", icon: "briefcase" },
 ];
 
 export default async function PartnerLayout({ children }: { children: React.ReactNode }) {
