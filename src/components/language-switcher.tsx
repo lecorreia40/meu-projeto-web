@@ -44,7 +44,7 @@ export function LanguageSwitcher({
           aria-pressed={l === locale}
           className={cn(
             "rounded-md px-2 py-1 font-medium transition-colors",
-            l === locale ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"
+            l === locale ? "bg-brand-400 text-brand-950" : "text-slate-600 hover:bg-slate-100"
           )}
         >
           {LABELS[l]}

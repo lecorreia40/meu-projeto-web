@@ -28,7 +28,7 @@ export default async function StartPage({
     <div className="min-h-screen bg-slate-50">
       <header className="mx-auto flex max-w-2xl items-center justify-between px-6 py-5">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-400 text-brand-950">
             <ShieldCheck className="h-5 w-5" />
           </div>
           <span className="text-lg font-bold tracking-tight">VisaOps</span>

@@ -17,7 +17,7 @@ export default async function HelpPage() {
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-400 text-brand-950">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <span className="font-bold tracking-tight">VisaOps Help</span>

@@ -1,17 +1,26 @@
 @import "tailwindcss";
 
+/*
+ * Brand palette: Instfy-style lime (#B4E717).
+ * The bright lime is a FILL accent used with dark text (never white on lime).
+ * 500 is the requested accent; 700-950 are deep greens used for text on light
+ * so links and labels stay readable.
+ */
 @theme {
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #dce7fd;
-  --color-brand-200: #c0d4fc;
-  --color-brand-300: #94b8f9;
-  --color-brand-400: #6191f4;
-  --color-brand-500: #3d6cee;
-  --color-brand-600: #274de2;
-  --color-brand-700: #1f3bcf;
-  --color-brand-800: #2032a8;
-  --color-brand-900: #1f2f85;
-  --color-brand-950: #171f51;
+  --color-brand-50: #f6fee7;
+  --color-brand-100: #eafbc5;
+  --color-brand-200: #d7f792;
+  --color-brand-300: #c3ef53;
+  --color-brand-400: #b4e717;
+  --color-brand-500: #a4d60c;
+  --color-brand-600: #86b006;
+  --color-brand-700: #5f7f0d;
+  --color-brand-800: #4b6312;
+  --color-brand-900: #3f5314;
+  --color-brand-950: #202e05;
+
+  /* Dark ink used for text sitting on top of lime fills */
+  --color-brand-ink: #1a2e05;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;

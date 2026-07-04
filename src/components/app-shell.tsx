@@ -27,7 +27,7 @@ export function AppShell({
       {/* Sidebar (desktop) / topbar (mobile) */}
       <aside className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2 px-5 py-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-400 text-brand-950">
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>

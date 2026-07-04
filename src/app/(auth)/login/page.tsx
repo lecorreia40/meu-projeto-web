@@ -14,7 +14,7 @@ export default async function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-400 text-brand-950">
             <ShieldCheck className="h-6 w-6" />
           </div>
           <h1 className="text-xl font-bold tracking-tight">VisaOps</h1>

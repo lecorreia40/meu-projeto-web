@@ -11,7 +11,7 @@ export function Progress({
   return (
     <div className={cn("h-2 w-full overflow-hidden rounded-full bg-slate-100", className)}>
       <div
-        className="h-full rounded-full bg-brand-600 transition-all"
+        className="h-full rounded-full bg-brand-500 transition-all"
         style={{ width: `${clamped}%` }}
       />
     </div>
