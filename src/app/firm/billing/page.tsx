@@ -4,10 +4,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/stat-card";
-import { formatDate, formatMoney, humanize } from "@/lib/utils";
+import { formatDate, formatMoney } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { tEnum } from "@/lib/i18n/enum-labels";
 
 export default async function BillingPage() {
   const user = await requirePermission("billing.read");
+  const locale = await getLocale();
+  const f = getDictionary(locale).firm;
   const invoices = await db.invoice.findMany({
     where: { tenantId: user.tenantId! },
     include: { payments: true, case: { select: { caseNumberInternal: true, client: { select: { fullName: true } } } } },
@@ -20,14 +25,14 @@ export default async function BillingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Billing</h1>
-        <p className="text-sm text-slate-500">Invoices and payments across cases.</p>
+        <h1 className="text-xl font-bold tracking-tight">{f.billingTitle}</h1>
+        <p className="text-sm text-slate-500">{f.billingSub}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Invoiced" value={formatMoney(total)} />
-        <StatCard label="Received" value={formatMoney(received)} tone="success" />
-        <StatCard label="Outstanding" value={formatMoney(total - received)} tone={total - received > 0 ? "warning" : "default"} />
+        <StatCard label={f.invoiced} value={formatMoney(total)} />
+        <StatCard label={f.received} value={formatMoney(received)} tone="success" />
+        <StatCard label={f.outstanding} value={formatMoney(total - received)} tone={total - received > 0 ? "warning" : "default"} />
       </div>
 
       <Card>
@@ -35,13 +40,13 @@ export default async function BillingPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Case</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Paid</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{f.thInvoice}</TableHead>
+                <TableHead>{f.thCase}</TableHead>
+                <TableHead>{f.thClient}</TableHead>
+                <TableHead>{f.thAmount}</TableHead>
+                <TableHead>{f.thPaid}</TableHead>
+                <TableHead>{f.thDue}</TableHead>
+                <TableHead>{f.thStatus}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -57,7 +62,7 @@ export default async function BillingPage() {
                     <TableCell className="text-slate-500">{formatDate(invoice.dueAt)}</TableCell>
                     <TableCell>
                       <Badge variant={invoice.status === "PAID" ? "success" : invoice.status === "OVERDUE" ? "danger" : "warning"}>
-                        {humanize(invoice.status)}
+                        {tEnum("invoiceStatus", invoice.status, locale)}
                       </Badge>
                     </TableCell>
                   </TableRow>

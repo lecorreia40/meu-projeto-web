@@ -10,9 +10,14 @@ import { CaseStatusBadge, RiskBadge } from "@/components/status-badge";
 import { Progress } from "@/components/ui/progress";
 import { caseProgress } from "@/lib/case-status";
 import { formatDate } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { tEnum } from "@/lib/i18n/enum-labels";
 
 export default async function CasesPage() {
   const user = await requirePermission("case.read");
+  const locale = await getLocale();
+  const f = getDictionary(locale).firm;
   const tenantId = user.tenantId!;
 
   const [cases, clients, visaCategories] = await Promise.all([
@@ -28,26 +33,26 @@ export default async function CasesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Cases</h1>
-        <p className="text-sm text-slate-500">{cases.length} cases in this workspace.</p>
+        <h1 className="text-xl font-bold tracking-tight">{f.casesTitle}</h1>
+        <p className="text-sm text-slate-500">{cases.length} {f.casesInWorkspace}</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Open new case</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{f.openNewCase}</CardTitle></CardHeader>
         <CardContent>
           <form action={createCaseAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Select name="clientId" required defaultValue="">
-              <option value="" disabled>Client…</option>
+              <option value="" disabled>{f.clientPh}</option>
               {clients.map((c) => <option key={c.id} value={c.id}>{c.fullName}</option>)}
             </Select>
             <Select name="visaCategoryId" required defaultValue="">
-              <option value="" disabled>Visa category…</option>
+              <option value="" disabled>{f.visaPh}</option>
               {visaCategories.map((v) => <option key={v.id} value={v.id}>{v.key} - {v.name}</option>)}
             </Select>
             <Select name="priority" defaultValue="NORMAL">
-              {["LOW", "NORMAL", "HIGH", "CRITICAL"].map((p) => <option key={p} value={p}>{p}</option>)}
+              {["LOW", "NORMAL", "HIGH", "CRITICAL"].map((p) => <option key={p} value={p}>{tEnum("priority", p, locale)}</option>)}
             </Select>
-            <Button type="submit">Open case (checklist auto-generated)</Button>
+            <Button type="submit">{f.openCaseBtn}</Button>
           </form>
         </CardContent>
       </Card>
@@ -57,14 +62,14 @@ export default async function CasesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Case</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Visa</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Risk</TableHead>
-                <TableHead>Attorney</TableHead>
-                <TableHead>Next deadline</TableHead>
+                <TableHead>{f.thCase}</TableHead>
+                <TableHead>{f.thClient}</TableHead>
+                <TableHead>{f.thVisa}</TableHead>
+                <TableHead>{f.thStatus}</TableHead>
+                <TableHead>{f.thProgress}</TableHead>
+                <TableHead>{f.thRisk}</TableHead>
+                <TableHead>{f.thAttorney}</TableHead>
+                <TableHead>{f.thNextDeadline}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

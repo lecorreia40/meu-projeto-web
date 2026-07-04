@@ -4,9 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { auditLabel } from "@/lib/audit-labels";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function AuditLogPage() {
   await requireUser();
+  const a = getDictionary(await getLocale()).admin;
   const logs = await db.auditLog.findMany({
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -16,22 +19,20 @@ export default async function AuditLogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Audit log</h1>
-        <p className="text-sm text-slate-500">
-          Append-only trail of sensitive actions: reads, downloads, changes and denials. Last 200 entries.
-        </p>
+        <h1 className="text-xl font-bold tracking-tight">{a.auditTitle}</h1>
+        <p className="text-sm text-slate-500">{a.auditSub}</p>
       </div>
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Entity</TableHead>
-                <TableHead>IP</TableHead>
+                <TableHead>{a.thWhen}</TableHead>
+                <TableHead>{a.thActor}</TableHead>
+                <TableHead>{a.thTenant}</TableHead>
+                <TableHead>{a.thAction}</TableHead>
+                <TableHead>{a.thEntity}</TableHead>
+                <TableHead>{a.thIp}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

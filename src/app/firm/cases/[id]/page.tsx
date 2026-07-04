@@ -7,6 +7,9 @@ import { can, legalNoteFilterFor, visibleMessageChannels } from "@/lib/permissio
 import { db } from "@/lib/db";
 import { caseProgress } from "@/lib/case-status";
 import { formatDate, formatMoney, humanize } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { tEnum } from "@/lib/i18n/enum-labels";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,10 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
   const result = await getCaseWorkspace(id);
   if (!result?.kase) notFound();
   const { user, kase } = result;
+
+  const locale = await getLocale();
+  const t = getDictionary(locale);
+  const f = t.firm;
 
   const noteFilter = legalNoteFilterFor(user);
   const legalNotes = noteFilter
@@ -70,9 +77,9 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           <form action={changeCaseStatusAction} className="flex items-center gap-2">
             <input type="hidden" name="caseId" value={kase.id} />
             <Select name="status" defaultValue={kase.status} className="w-56">
-              {ALL_STATUSES.map((s) => <option key={s} value={s}>{humanize(s)}</option>)}
+              {ALL_STATUSES.map((s) => <option key={s} value={s}>{tEnum("caseStatus", s, locale)}</option>)}
             </Select>
-            <Button type="submit" variant="secondary">Update status</Button>
+            <Button type="submit" variant="secondary">{f.updateStatus}</Button>
           </form>
         )}
       </div>
@@ -80,37 +87,37 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       <Card>
         <CardContent className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5">
           <div>
-            <div className="text-xs text-slate-500">Progress</div>
+            <div className="text-xs text-slate-500">{f.thProgress}</div>
             <Progress value={caseProgress(kase.status)} className="mt-2" />
             <div className="mt-1 text-xs text-slate-400">{caseProgress(kase.status)}%</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Attorney</div>
-            <div className="text-sm font-medium">{kase.attorney?.name ?? "Unassigned"}</div>
-            <div className="text-xs text-slate-500">Paralegal: {kase.paralegal?.name ?? "-"}</div>
+            <div className="text-xs text-slate-500">{f.attorney}</div>
+            <div className="text-sm font-medium">{kase.attorney?.name ?? f.unassigned}</div>
+            <div className="text-xs text-slate-500">{f.paralegal}: {kase.paralegal?.name ?? "-"}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Next action</div>
+            <div className="text-xs text-slate-500">{f.nextActionLbl}</div>
             <div className="text-sm font-medium">{kase.nextAction ?? "-"}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Next deadline</div>
+            <div className="text-xs text-slate-500">{f.nextDeadlineLbl}</div>
             <div className="text-sm font-medium">{formatDate(kase.nextDeadlineAt)}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-500">Checklist</div>
-            <div className="text-sm font-medium">{checklistDone}/{checklistTotal} approved</div>
-            <div className="text-xs text-slate-500">Receipt: {kase.externalReceiptNumber ?? "-"}</div>
+            <div className="text-xs text-slate-500">{f.checklistLbl}</div>
+            <div className="text-sm font-medium">{checklistDone}/{checklistTotal} {f.approvedWord}</div>
+            <div className="text-xs text-slate-500">{f.receipt}: {kase.externalReceiptNumber ?? "-"}</div>
           </div>
         </CardContent>
       </Card>
 
       {kase.riskFlags.length > 0 && (
         <Card className="border-rose-200 bg-rose-50/50">
-          <CardHeader><CardTitle className="text-rose-800">Open risk flags</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-rose-800">{f.openRiskFlags}</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            {kase.riskFlags.map((f) => (
-              <Badge key={f.id} variant="danger">{humanize(f.kind)}{f.note ? ` - ${f.note}` : ""}</Badge>
+            {kase.riskFlags.map((flag) => (
+              <Badge key={flag.id} variant="danger">{humanize(flag.kind)}{flag.note ? ` - ${flag.note}` : ""}</Badge>
             ))}
           </CardContent>
         </Card>
@@ -120,18 +127,18 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         {/* Checklist */}
         <Card>
           <CardHeader>
-            <CardTitle>Document checklist</CardTitle>
-            <CardDescription>Generated by the checklist engine for {kase.visaCategory.key}.</CardDescription>
+            <CardTitle>{f.documentChecklist}</CardTitle>
+            <CardDescription>{f.generatedBy} {kase.visaCategory.key}.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {!checklist && <p className="text-sm text-slate-500">No checklist yet.</p>}
+            {!checklist && <p className="text-sm text-slate-500">{f.noChecklist}</p>}
             {checklist?.items.map((item) => (
               <div key={item.id} className="rounded-lg border border-slate-100 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <div className="text-sm font-medium">{item.label}</div>
                     <div className="text-xs text-slate-500">
-                      {humanize(item.necessity)} · owner: {item.ownerRole}
+                      {tEnum("necessity", item.necessity, locale)} · {f.owner}: {item.ownerRole}
                       {item.document ? ` · v${item.document.version}` : ""}
                     </div>
                   </div>
@@ -142,7 +149,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                     <input type="hidden" name="caseId" value={kase.id} />
                     <input type="hidden" name="checklistItemId" value={item.id} />
                     <Input name="file" type="file" className="h-8 text-xs" required />
-                    <Button size="sm" variant="secondary" type="submit">Upload</Button>
+                    <Button size="sm" variant="secondary" type="submit">{t.ui.upload}</Button>
                   </form>
                 )}
               </div>
@@ -153,11 +160,11 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         {/* Documents + review */}
         <Card>
           <CardHeader>
-            <CardTitle>Documents</CardTitle>
-            <CardDescription>All downloads are permission-checked and audit-logged.</CardDescription>
+            <CardTitle>{f.documentsTitle}</CardTitle>
+            <CardDescription>{f.downloadsAudited}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {kase.documents.length === 0 && <p className="text-sm text-slate-500">No documents uploaded yet.</p>}
+            {kase.documents.length === 0 && <p className="text-sm text-slate-500">{f.noDocumentsUploaded}</p>}
             {kase.documents.map((doc) => (
               <div key={doc.id} className="rounded-lg border border-slate-100 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -166,7 +173,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                       {doc.filename}
                     </a>
                     <div className="text-xs text-slate-500">
-                      {doc.documentType?.name ?? "Uncategorized"} · v{doc.version} · {humanize(doc.sensitivity)} · by {doc.owner?.name ?? "-"} · {formatDate(doc.createdAt)}
+                      {doc.documentType?.name ?? "-"} · v{doc.version} · {tEnum("sensitivity", doc.sensitivity, locale)} · {doc.owner?.name ?? "-"} · {formatDate(doc.createdAt)}
                     </div>
                   </div>
                   <DocumentStatusBadge status={doc.status} />
@@ -174,13 +181,13 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                 {can(user, "document.approve") && doc.status !== "APPROVED" && !doc.lockedAt && (
                   <form action={reviewDocumentAction} className="mt-2 flex flex-wrap items-center gap-2">
                     <input type="hidden" name="documentId" value={doc.id} />
-                    <Input name="comment" placeholder="Review comment" className="h-8 w-48 text-xs" />
+                    <Input name="comment" placeholder={f.reviewComment} className="h-8 w-48 text-xs" />
                     <Select name="decision" defaultValue="APPROVED" className="h-8 w-40 text-xs">
-                      <option value="APPROVED">Approve</option>
-                      <option value="NEEDS_CHANGES">Needs changes</option>
-                      <option value="REJECTED">Reject</option>
+                      <option value="APPROVED">{f.approve}</option>
+                      <option value="NEEDS_CHANGES">{f.needsChanges}</option>
+                      <option value="REJECTED">{f.reject}</option>
                     </Select>
-                    <Button size="sm" variant="secondary" type="submit">Review</Button>
+                    <Button size="sm" variant="secondary" type="submit">{f.review}</Button>
                   </form>
                 )}
               </div>
@@ -190,19 +197,19 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
 
         {/* Tasks */}
         <Card>
-          <CardHeader><CardTitle>Tasks</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{f.tasksTitle}</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {can(user, "task.manage") && (
               <form action={createTaskAction} className="grid gap-2 rounded-lg border border-slate-100 p-3 sm:grid-cols-2">
                 <input type="hidden" name="caseId" value={kase.id} />
-                <Input name="title" placeholder="Task title" required className="sm:col-span-2" />
+                <Input name="title" placeholder={f.thTask} required className="sm:col-span-2" />
                 <Select name="assigneeId" defaultValue="">
-                  <option value="">Assignee…</option>
+                  <option value="">{f.assignee}</option>
                   {teamMembers.map((m) => <option key={m.user.id} value={m.user.id}>{m.user.name}</option>)}
                 </Select>
                 <div className="flex gap-2">
                   <Input name="dueAt" type="date" className="flex-1" />
-                  <Button type="submit" size="sm">Add</Button>
+                  <Button type="submit" size="sm">{t.ui.add}</Button>
                 </div>
               </form>
             )}
@@ -211,7 +218,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                 <div>
                   <div className="text-sm font-medium">{task.title}</div>
                   <div className="text-xs text-slate-500">
-                    {task.assignee?.name ?? "Unassigned"} · due {formatDate(task.dueAt)}
+                    {task.assignee?.name ?? f.unassigned} · {t.ui.due} {formatDate(task.dueAt)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -219,7 +226,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                   {task.status !== "DONE" && task.status !== "CANCELLED" && (
                     <form action={completeTaskAction}>
                       <input type="hidden" name="taskId" value={task.id} />
-                      <Button size="sm" variant="ghost" type="submit">Done</Button>
+                      <Button size="sm" variant="ghost" type="submit">{t.ui.done}</Button>
                     </form>
                   )}
                 </div>
@@ -231,14 +238,14 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         {/* Messages */}
         <Card>
           <CardHeader>
-            <CardTitle>Messages</CardTitle>
-            <CardDescription>Immutable history. Internal channel is never visible to clients or partners.</CardDescription>
+            <CardTitle>{t.nav.messages}</CardTitle>
+            <CardDescription>{f.messagesImmutable}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {visibleThreads.map((thread) => (
               <div key={thread.id}>
                 <div className="mb-2 flex items-center gap-2">
-                  <Badge variant={thread.channel === "INTERNAL" ? "warning" : "info"}>{humanize(thread.channel)}</Badge>
+                  <Badge variant={thread.channel === "INTERNAL" ? "warning" : "info"}>{tEnum("channel", thread.channel, locale)}</Badge>
                   <span className="text-xs text-slate-500">{thread.subject}</span>
                 </div>
                 <div className="space-y-2">
@@ -255,12 +262,12 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
             ))}
             <form action={sendMessageAction} className="flex gap-2">
               <input type="hidden" name="caseId" value={kase.id} />
-              <Textarea name="body" placeholder="Write a message…" required className="min-h-[44px] flex-1" />
+              <Textarea name="body" placeholder={f.writeMessage} required className="min-h-[44px] flex-1" />
               <div className="flex flex-col gap-2">
                 <Select name="channel" defaultValue="OPERATIONAL" className="w-36">
-                  {channels.map((c) => <option key={c} value={c}>{humanize(c)}</option>)}
+                  {channels.map((ch) => <option key={ch} value={ch}>{tEnum("channel", ch, locale)}</option>)}
                 </Select>
-                <Button type="submit" size="sm">Send</Button>
+                <Button type="submit" size="sm">{t.ui.send}</Button>
               </div>
             </form>
           </CardContent>
@@ -270,20 +277,20 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         {legalNotes !== null && (
           <Card>
             <CardHeader>
-              <CardTitle>Legal notes (private)</CardTitle>
-              <CardDescription>Never visible to clients or partners.</CardDescription>
+              <CardTitle>{f.legalNotesPrivate}</CardTitle>
+              <CardDescription>{f.neverVisible}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {can(user, "legal_note.create") && (
                 <form action={addLegalNoteAction} className="space-y-2 rounded-lg border border-slate-100 p-3">
                   <input type="hidden" name="caseId" value={kase.id} />
-                  <Textarea name="body" placeholder="Private note…" required />
+                  <Textarea name="body" placeholder={f.privateNote} required />
                   <div className="flex items-center gap-2">
                     <Select name="visibility" defaultValue="LEGAL_TEAM" className="w-44">
-                      <option value="LEGAL_TEAM">Legal team</option>
-                      <option value="ATTORNEY_ONLY">Attorney only</option>
+                      <option value="LEGAL_TEAM">{f.legalTeamOpt}</option>
+                      <option value="ATTORNEY_ONLY">{f.attorneyOnlyOpt}</option>
                     </Select>
-                    <Button size="sm" type="submit">Add note</Button>
+                    <Button size="sm" type="submit">{f.addNote}</Button>
                   </div>
                 </form>
               )}
@@ -304,8 +311,8 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
         {/* Attorney review gates */}
         <Card>
           <CardHeader>
-            <CardTitle>Attorney approval gates</CardTitle>
-            <CardDescription>Nothing final leaves the platform without an approval here.</CardDescription>
+            <CardTitle>{f.attorneyGates}</CardTitle>
+            <CardDescription>{f.gatesSub}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {can(user, "attorney_review.approve") && (
@@ -315,15 +322,15 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
                   {GATES.map((g) => <option key={g} value={g}>{humanize(g)}</option>)}
                 </Select>
                 <Select name="decision" defaultValue="APPROVED">
-                  <option value="APPROVED">Approve</option>
-                  <option value="NEEDS_CHANGES">Needs changes</option>
-                  <option value="REJECTED">Reject</option>
+                  <option value="APPROVED">{f.approve}</option>
+                  <option value="NEEDS_CHANGES">{f.needsChanges}</option>
+                  <option value="REJECTED">{f.reject}</option>
                 </Select>
-                <Input name="comment" placeholder="Comment" className="sm:col-span-2" />
-                <Button size="sm" type="submit" className="sm:col-span-2">Record review</Button>
+                <Input name="comment" placeholder={f.reviewComment} className="sm:col-span-2" />
+                <Button size="sm" type="submit" className="sm:col-span-2">{f.recordReview}</Button>
               </form>
             )}
-            {kase.attorneyReviews.length === 0 && <p className="text-sm text-slate-500">No reviews recorded yet.</p>}
+            {kase.attorneyReviews.length === 0 && <p className="text-sm text-slate-500">{f.noReviews}</p>}
             {kase.attorneyReviews.map((review) => (
               <div key={review.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3">
                 <div>
@@ -342,16 +349,16 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
       {/* Billing summary */}
       {can(user, "billing.read") && kase.invoices.length > 0 && (
         <Card>
-          <CardHeader><CardTitle>Billing</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{f.billingTitle}</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {kase.invoices.map((invoice) => {
               const paid = invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0);
               return (
                 <div key={invoice.id} className="flex items-center justify-between rounded-lg border border-slate-100 p-3 text-sm">
                   <span className="font-medium">{invoice.number}</span>
-                  <span>{formatMoney(Number(invoice.amount))} · paid {formatMoney(paid)}</span>
+                  <span>{formatMoney(Number(invoice.amount))} · {f.thPaid} {formatMoney(paid)}</span>
                   <Badge variant={invoice.status === "PAID" ? "success" : invoice.status === "OVERDUE" ? "danger" : "warning"}>
-                    {humanize(invoice.status)}
+                    {tEnum("invoiceStatus", invoice.status, locale)}
                   </Badge>
                 </div>
               );
@@ -362,7 +369,7 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
 
       {/* Timeline */}
       <Card>
-        <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t.nav.timeline}</CardTitle></CardHeader>
         <CardContent>
           <Timeline
             events={kase.events.map((e) => ({

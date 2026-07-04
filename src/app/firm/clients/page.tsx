@@ -8,9 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function ClientsPage() {
   const user = await requirePermission("client.read");
+  const locale = await getLocale();
+  const f = getDictionary(locale).firm;
   const clients = await db.client.findMany({
     where: { tenantId: user.tenantId!, deletedAt: null },
     include: { cases: { where: { deletedAt: null }, include: { visaCategory: true } } },
@@ -20,19 +24,19 @@ export default async function ClientsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Clients</h1>
-        <p className="text-sm text-slate-500">{clients.length} clients in this workspace.</p>
+        <h1 className="text-xl font-bold tracking-tight">{f.clientsTitle}</h1>
+        <p className="text-sm text-slate-500">{clients.length} {f.clientsInWorkspace}</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>New client</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{f.newClient}</CardTitle></CardHeader>
         <CardContent>
           <form action={createClientAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Input name="fullName" placeholder="Full name" required />
-            <Input name="email" type="email" placeholder="Email" />
-            <Input name="phone" placeholder="Phone" />
-            <Input name="nationality" placeholder="Nationality" />
-            <Button type="submit">Add client</Button>
+            <Input name="fullName" placeholder={f.namePh} required />
+            <Input name="email" type="email" placeholder={f.emailPh} />
+            <Input name="phone" placeholder={f.phonePh} />
+            <Input name="nationality" placeholder={f.nationalityPh} />
+            <Button type="submit">{f.addClient}</Button>
           </form>
         </CardContent>
       </Card>
@@ -42,11 +46,11 @@ export default async function ClientsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Nationality</TableHead>
-                <TableHead>Cases</TableHead>
-                <TableHead>Since</TableHead>
+                <TableHead>{f.thName}</TableHead>
+                <TableHead>{f.thEmail}</TableHead>
+                <TableHead>{f.thNationality}</TableHead>
+                <TableHead>{f.thCases}</TableHead>
+                <TableHead>{f.thSince}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

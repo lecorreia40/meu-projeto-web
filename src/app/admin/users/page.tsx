@@ -8,9 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export default async function AdminUsersPage() {
   const admin = await requirePlatformAdmin();
+  const a = getDictionary(await getLocale()).admin;
 
   const [users, tenants, roles] = await Promise.all([
     db.user.findMany({
@@ -26,30 +29,30 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Users</h1>
-        <p className="text-sm text-slate-500">Manage accounts across every workspace. All actions are audited.</p>
+        <h1 className="text-xl font-bold tracking-tight">{a.usersTitle}</h1>
+        <p className="text-sm text-slate-500">{a.usersSub}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Invite a user</CardTitle>
-          <CardDescription>Set an initial password and ask the person to change it after first sign-in.</CardDescription>
+          <CardTitle>{a.inviteUser}</CardTitle>
+          <CardDescription>{a.inviteSub}</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={createUserAction} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <Input name="name" placeholder="Full name" required className="lg:col-span-1" />
-            <Input name="email" type="email" placeholder="Email" required className="lg:col-span-2" />
+            <Input name="name" placeholder={a.fullNamePh} required className="lg:col-span-1" />
+            <Input name="email" type="email" placeholder={a.emailPh} required className="lg:col-span-2" />
             <Select name="tenantId" required defaultValue="">
-              <option value="" disabled>Workspace…</option>
+              <option value="" disabled>{a.workspacePh}</option>
               {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </Select>
             <Select name="roleId" required defaultValue="">
-              <option value="" disabled>Role…</option>
+              <option value="" disabled>{a.rolePh}</option>
               {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             </Select>
             <div className="flex gap-2">
-              <Input name="password" type="text" placeholder="Initial password" minLength={8} required className="flex-1" />
-              <Button type="submit">Create</Button>
+              <Input name="password" type="text" placeholder={a.initialPassword} minLength={8} required className="flex-1" />
+              <Button type="submit">{a.createBtn}</Button>
             </div>
           </form>
         </CardContent>
@@ -60,12 +63,12 @@ export default async function AdminUsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Workspace</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>{a.thNameCol}</TableHead>
+                <TableHead>{a.emailPh}</TableHead>
+                <TableHead>{a.thWorkspace}</TableHead>
+                <TableHead>{a.thRole}</TableHead>
+                <TableHead>{a.thStatusCol}</TableHead>
+                <TableHead>{a.thCreatedU}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -77,7 +80,7 @@ export default async function AdminUsersPage() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
                       {user.name}
-                      {user.isPlatformAdmin && <Badge variant="brand" className="ml-2">Platform</Badge>}
+                      {user.isPlatformAdmin && <Badge variant="brand" className="ml-2">{a.platform}</Badge>}
                     </TableCell>
                     <TableCell className="text-slate-500">{user.email}</TableCell>
                     <TableCell className="text-slate-500">{membership?.tenant.name ?? "-"}</TableCell>
@@ -88,12 +91,12 @@ export default async function AdminUsersPage() {
                           <Select name="roleId" defaultValue={membership.roleId} className="h-7 w-40 text-xs">
                             {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                           </Select>
-                          <Button size="sm" variant="ghost" type="submit">Save</Button>
+                          <Button size="sm" variant="ghost" type="submit">{a.saveBtn}</Button>
                         </form>
                       ) : <span className="text-slate-400">-</span>}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={active ? "success" : "danger"}>{active ? "Active" : "Disabled"}</Badge>
+                      <Badge variant={active ? "success" : "danger"}>{active ? a.active : a.disabled}</Badge>
                     </TableCell>
                     <TableCell className="text-slate-500">{formatDate(user.createdAt)}</TableCell>
                     <TableCell>
@@ -102,7 +105,7 @@ export default async function AdminUsersPage() {
                           <input type="hidden" name="userId" value={user.id} />
                           <input type="hidden" name="active" value={active ? "false" : "true"} />
                           <Button size="sm" variant={active ? "ghost" : "secondary"} type="submit">
-                            {active ? "Disable" : "Enable"}
+                            {active ? a.disable : a.enable}
                           </Button>
                         </form>
                       )}

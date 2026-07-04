@@ -7,10 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DocumentStatusBadge } from "@/components/status-badge";
-import { formatDate, humanize } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
+import { tEnum } from "@/lib/i18n/enum-labels";
 
 export default async function FirmDocumentsPage() {
   const user = await requirePermission("document.read");
+  const locale = await getLocale();
+  const f = getDictionary(locale).firm;
   const documents = await db.document.findMany({
     where: { tenantId: user.tenantId!, deletedAt: null },
     include: {
@@ -27,17 +32,17 @@ export default async function FirmDocumentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">Documents</h1>
-        <p className="text-sm text-slate-500">{pending.length} awaiting review.</p>
+        <h1 className="text-xl font-bold tracking-tight">{f.documentsTitle}</h1>
+        <p className="text-sm text-slate-500">{pending.length} {f.awaitingReview}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Review queue</CardTitle>
-          <CardDescription>Documents pending review across all cases.</CardDescription>
+          <CardTitle>{f.reviewQueue}</CardTitle>
+          <CardDescription>{f.reviewQueueSub}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {pending.length === 0 && <p className="text-sm text-slate-500">Nothing to review.</p>}
+          {pending.length === 0 && <p className="text-sm text-slate-500">{f.nothingToReview}</p>}
           {pending.map((doc) => (
             <div key={doc.id} className="rounded-lg border border-slate-100 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -47,20 +52,20 @@ export default async function FirmDocumentsPage() {
                     {doc.case && (
                       <Link href={`/firm/cases/${doc.case.id}`} className="hover:underline">{doc.case.caseNumberInternal}</Link>
                     )}
-                    {" · "}{doc.documentType?.name ?? "Uncategorized"} · {humanize(doc.sensitivity)} · by {doc.owner?.name ?? "-"} · {formatDate(doc.createdAt)}
+                    {" · "}{doc.documentType?.name ?? "-"} · {tEnum("sensitivity", doc.sensitivity, locale)} · {doc.owner?.name ?? "-"} · {formatDate(doc.createdAt)}
                   </div>
                 </div>
                 <DocumentStatusBadge status={doc.status} />
               </div>
               <form action={reviewDocumentAction} className="mt-2 flex flex-wrap items-center gap-2">
                 <input type="hidden" name="documentId" value={doc.id} />
-                <Input name="comment" placeholder="Comment" className="h-8 w-56 text-xs" />
+                <Input name="comment" placeholder={f.reviewComment} className="h-8 w-56 text-xs" />
                 <Select name="decision" defaultValue="APPROVED" className="h-8 w-40 text-xs">
-                  <option value="APPROVED">Approve</option>
-                  <option value="NEEDS_CHANGES">Needs changes</option>
-                  <option value="REJECTED">Reject</option>
+                  <option value="APPROVED">{f.approve}</option>
+                  <option value="NEEDS_CHANGES">{f.needsChanges}</option>
+                  <option value="REJECTED">{f.reject}</option>
                 </Select>
-                <Button size="sm" variant="secondary" type="submit">Submit review</Button>
+                <Button size="sm" variant="secondary" type="submit">{f.submitReview}</Button>
               </form>
             </div>
           ))}
@@ -68,7 +73,7 @@ export default async function FirmDocumentsPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>All documents</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{f.allDocuments}</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {rest.map((doc) => (
             <div key={doc.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-3">

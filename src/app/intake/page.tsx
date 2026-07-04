@@ -5,6 +5,9 @@ import Link from "next/link";
 
 export const metadata = { title: "Free Assessment - VisaOps" };
 
+// Intake questions are configurable data, so render on demand (never prerender).
+export const dynamic = "force-dynamic";
+
 export default async function IntakePage() {
   const questions = await getIntakeQuestions();
 
