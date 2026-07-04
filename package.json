@@ -5,6 +5,7 @@
   "description": "Visa Lifecycle Management Platform — multi-tenant VisaOps SaaS for immigration law firms, clients and partners",
   "scripts": {
     "dev": "next dev",
+    "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
