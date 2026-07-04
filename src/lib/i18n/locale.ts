@@ -22,7 +22,7 @@ export async function getLocale(): Promise<Locale> {
       return user.locale as Locale;
     }
   } catch {
-    // no session (public pages) — fall through
+    // no session (public pages), fall through
   }
   return "en";
 }

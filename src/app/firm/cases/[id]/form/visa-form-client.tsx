@@ -151,7 +151,7 @@ export function VisaFormClient({
                     </div>
                   ) : field.type === "select" ? (
                     <Select id={id} value={String(val ?? "")} onChange={(e) => setField(field.key, e.target.value)}>
-                      <option value="">—</option>
+                      <option value="">-</option>
                       {(field.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
                     </Select>
                   ) : field.type === "textarea" ? (

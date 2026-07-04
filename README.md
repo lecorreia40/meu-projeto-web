@@ -1,9 +1,12 @@
 # VisaOps - Visa Lifecycle Management Platform
 
-Multi-tenant SaaS operating system for immigration law firms, their clients and operational
-partners. The platform covers the full visa lifecycle: lead capture, intelligent intake,
-eligibility screening, case management, document collection and review, legal workflow with
-attorney approval gates, messaging, billing, and post-approval compliance monitoring.
+Multi-tenant SaaS operating system for the whole visa market: immigration law firms, agencies
+and consultancies, operational partners, and individuals who engage self-serve. The platform
+covers the full visa lifecycle: lead capture, intelligent intake, per-visa structured forms,
+readiness scoring, case management, document collection and review, legal workflow with
+attorney approval gates, messaging, billing, plans and pricing, and post-approval compliance.
+
+The entire interface is available in English, Portuguese and Spanish.
 
 Core principle: the platform organizes, automates, educates and tracks. It never replaces
 the attorney. Legal-advice paths are gated behind human review by design, and the AI layer
@@ -43,7 +46,46 @@ Demo logins (password `demo1234`):
 | client@example.dev | Client (Principal Applicant) | /client |
 | partner@cpafirm.dev | Partner (CPA) | /partner |
 
-Public pages: `/` (landing) and `/intake` (free readiness assessment wizard).
+Public pages: `/` (landing with per-audience positioning), `/intake` (free readiness
+assessment wizard), and `/start` (self-serve: create an account and open a Document Readiness
+case directly, no firm required).
+
+## Feature status
+
+All delivered and verified (strict `tsc`, production build, and per-feature Playwright smokes):
+
+- Multi-tenant auth, sessions, RBAC + ABAC permissions, immutable audit log
+- Four portals: law firm, client, partner, platform admin, plus public landing/intake/start
+- CRM leads pipeline, clients, cases with a full workspace
+- Dynamic document checklist engine per visa category
+- Document vault: audited downloads, review workflow, versioning, sensitivity, filing lock
+- Tasks, per-channel messaging, private legal notes, attorney approval gates
+- Billing and a Plans & pricing catalog (assign a tier to any workspace)
+- Post-approval compliance calendar
+- Admin: tenant list, user management, editable visa catalog, plans, audit log
+- Per-visa structured forms with client + server validation for all 13 categories
+- Per-case readiness / health score (weighted composite, live-computed)
+- Self-serve direct engagement and multi-vertical positioning
+- In-app orientation (`/help`) tailored per profile
+- Full EN / PT / ES localization, with a language switcher in the header
+
+Known limitations / next phase: document uploads use a local-disk driver (swap `src/lib/storage.ts`
+for S3/Cloudflare R2 so files persist on serverless hosting); no API rate limiting yet; AI
+assistance layer is scaffolded with guardrails but not wired to a model.
+
+## Production deploy (Supabase + Vercel)
+
+See `DEPLOY.md` for the full click-by-click guide. The app is deployed by importing the repo on
+Vercel with `DATABASE_URL` and `AUTH_SECRET` set. The database is initialized by pasting the SQL
+files under `deploy/` into the Supabase SQL Editor, in this order:
+
+1. `deploy/supabase-setup.sql` - full schema + demo data (run once, first)
+2. `deploy/supabase-plans.sql` - Plans & pricing table and the 5 tiers
+3. `deploy/supabase-case-form.sql` - `Case.formData` column for per-visa forms
+4. `deploy/supabase-self-serve.sql` - the "VisaOps Direct" self-serve workspace
+
+Prisma migrations (`prisma/migrations/`) are the canonical source; the SQL files are convenience
+snapshots so production can be initialized without a shell.
 
 ## Architecture
 
