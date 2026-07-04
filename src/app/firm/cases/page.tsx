@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { CaseStatusBadge, RiskBadge } from "@/components/status-badge";
+import { HealthChip } from "@/components/case-health";
 import { Progress } from "@/components/ui/progress";
 import { caseProgress } from "@/lib/case-status";
 import { formatDate } from "@/lib/utils";
@@ -23,7 +24,14 @@ export default async function CasesPage() {
   const [cases, clients, visaCategories] = await Promise.all([
     db.case.findMany({
       where: { tenantId, deletedAt: null },
-      include: { client: true, visaCategory: true, attorney: { select: { name: true } } },
+      include: {
+        client: true,
+        visaCategory: true,
+        attorney: { select: { name: true } },
+        checklists: { select: { items: { select: { status: true } } } },
+        documents: { where: { deletedAt: null }, select: { status: true } },
+        riskFlags: { where: { resolvedAt: null }, select: { severity: true } },
+      },
       orderBy: { updatedAt: "desc" },
     }),
     db.client.findMany({ where: { tenantId, deletedAt: null }, orderBy: { fullName: "asc" } }),
@@ -67,6 +75,7 @@ export default async function CasesPage() {
                 <TableHead>{f.thVisa}</TableHead>
                 <TableHead>{f.thStatus}</TableHead>
                 <TableHead>{f.thProgress}</TableHead>
+                <TableHead>{f.thHealth}</TableHead>
                 <TableHead>{f.thRisk}</TableHead>
                 <TableHead>{f.thAttorney}</TableHead>
                 <TableHead>{f.thNextDeadline}</TableHead>
@@ -84,6 +93,19 @@ export default async function CasesPage() {
                   <TableCell>{c.visaCategory.key}</TableCell>
                   <TableCell><CaseStatusBadge status={c.status} /></TableCell>
                   <TableCell className="w-32"><Progress value={caseProgress(c.status)} /></TableCell>
+                  <TableCell>
+                    <HealthChip
+                      input={{
+                        visaKey: c.visaCategory.key,
+                        formData: c.formData as Record<string, unknown>,
+                        checklistStatuses: c.checklists.flatMap((cl) => cl.items).map((i) => i.status),
+                        documentStatuses: c.documents.map((d) => d.status),
+                        openRiskFlags: c.riskFlags.map((r) => ({ severity: r.severity })),
+                        nextDeadlineAt: c.nextDeadlineAt,
+                        status: c.status,
+                      }}
+                    />
+                  </TableCell>
                   <TableCell><RiskBadge level={c.riskLevel} /></TableCell>
                   <TableCell className="text-slate-500">{c.attorney?.name ?? "-"}</TableCell>
                   <TableCell className="text-slate-500">{formatDate(c.nextDeadlineAt)}</TableCell>

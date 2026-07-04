@@ -10,6 +10,7 @@ import { formatDate, formatMoney, humanize } from "@/lib/utils";
 import { getLocale } from "@/lib/i18n/locale";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { tEnum } from "@/lib/i18n/enum-labels";
+import { CaseHealthCard } from "@/components/case-health";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,6 +117,24 @@ export default async function CaseWorkspacePage({ params }: { params: Promise<{ 
           </div>
         </CardContent>
       </Card>
+
+      <CaseHealthCard
+        input={{
+          visaKey: kase.visaCategory.key,
+          formData: kase.formData as Record<string, unknown>,
+          checklistStatuses: kase.checklists.flatMap((cl) => cl.items).map((i) => i.status),
+          documentStatuses: kase.documents.map((d) => d.status),
+          openRiskFlags: kase.riskFlags.map((r) => ({ severity: r.severity })),
+          nextDeadlineAt: kase.nextDeadlineAt,
+          status: kase.status,
+        }}
+        labels={{
+          title: f.healthTitle,
+          sub: f.healthSub,
+          band: { good: f.bandGood, warning: f.bandWarning, critical: f.bandCritical },
+          factor: { form: f.factorForm, checklist: f.factorChecklist, documents: f.factorDocuments, risk: f.factorRisk, deadline: f.factorDeadline },
+        }}
+      />
 
       {kase.riskFlags.length > 0 && (
         <Card className="border-rose-200 bg-rose-50/50">
