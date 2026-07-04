@@ -2,6 +2,8 @@ import { getIntakeQuestions } from "@/server/actions/intake";
 import { IntakeWizard } from "./wizard";
 import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { getLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/dictionaries";
 
 export const metadata = { title: "Free Assessment - VisaOps" };
 
@@ -10,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function IntakePage() {
   const questions = await getIntakeQuestions();
+  const t = getDictionary(await getLocale());
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -40,6 +43,7 @@ export default async function IntakePage() {
               dependsOnKey: q.dependsOnKey,
               dependsOnValue: q.dependsOnValue,
             }))}
+            startLabel={t.start.create}
           />
         </div>
       </main>

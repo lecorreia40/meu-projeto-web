@@ -61,7 +61,7 @@ function isVisible(q: Question, answers: Record<string, unknown>): boolean {
   return String(answer) === q.dependsOnValue;
 }
 
-export function IntakeWizard({ questions }: { questions: Question[] }) {
+export function IntakeWizard({ questions, startLabel }: { questions: Question[]; startLabel: string }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [contact, setContact] = useState({ name: "", email: "" });
@@ -126,6 +126,10 @@ export function IntakeWizard({ questions }: { questions: Question[] }) {
               </ul>
             </div>
           )}
+
+          <a href={`/start${result.routes[0] ? `?visa=${result.routes[0].visaKey}` : ""}`} className="block">
+            <Button className="w-full">{startLabel}</Button>
+          </a>
 
           <div className="rounded-lg bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
             These suggestions are drafts for legal analysis, not a legal opinion or a promise of

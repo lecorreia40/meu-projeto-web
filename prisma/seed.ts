@@ -487,6 +487,22 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
+  // Self-serve workspace: where applicants who engage directly land as clients
+  // -------------------------------------------------------------------------
+  console.log("Seeding self-serve workspace...");
+  const selfServe = await prisma.tenant.upsert({
+    where: { slug: "visaops-direct" },
+    update: {},
+    create: { name: "VisaOps Direct", slug: "visaops-direct", plan: "STARTER" },
+  });
+  const selfServeOrg =
+    (await prisma.organization.findFirst({ where: { tenantId: selfServe.id } })) ??
+    (await prisma.organization.create({
+      data: { tenantId: selfServe.id, name: "VisaOps Direct", kind: "CONSULTANCY" },
+    }));
+  void selfServeOrg;
+
+  // -------------------------------------------------------------------------
   // Demo tenant + users
   // -------------------------------------------------------------------------
   console.log("Seeding demo tenant and users...");

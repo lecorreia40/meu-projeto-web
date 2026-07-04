@@ -44,17 +44,20 @@ export default async function LandingPage() {
         <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">{L.title}</h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">{L.subtitle}</p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <Link href="/start">
+            <Button size="lg">{L.ctaStartProcess}</Button>
+          </Link>
           <Link href="/intake">
-            <Button size="lg">{L.ctaStart}</Button>
+            <Button size="lg" variant="secondary">{L.ctaStart}</Button>
           </Link>
           <Link href="/login">
-            <Button size="lg" variant="secondary">{L.ctaFirm}</Button>
+            <Button size="lg" variant="ghost">{L.ctaFirm}</Button>
           </Link>
         </div>
         <p className="mx-auto mt-6 max-w-xl text-xs leading-relaxed text-slate-400">{L.note}</p>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-4 px-6 pb-20 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto grid max-w-6xl gap-4 px-6 pb-16 sm:grid-cols-2 lg:grid-cols-3">
         {features.map((f) => (
           <Card key={f.title}>
             <CardContent className="p-6">
@@ -64,6 +67,31 @@ export default async function LandingPage() {
             </CardContent>
           </Card>
         ))}
+      </section>
+
+      <section className="border-t border-slate-100 bg-slate-50/60">
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900">{L.forWho}</h2>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {[
+              { t: L.vFirmsT, b: L.vFirmsB },
+              { t: L.vAgenciesT, b: L.vAgenciesB },
+              { t: L.vIndividualsT, b: L.vIndividualsB },
+            ].map((v) => (
+              <Card key={v.t}>
+                <CardContent className="p-6">
+                  <h3 className="font-semibold text-slate-900">{v.t}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{v.b}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="mt-8 text-center">
+            <Link href="/start">
+              <Button size="lg">{L.ctaStartProcess}</Button>
+            </Link>
+          </div>
+        </div>
       </section>
     </div>
   );
