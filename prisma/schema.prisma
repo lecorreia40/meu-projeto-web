@@ -1,0 +1,1250 @@
+// Visa Lifecycle Management Platform - multi-tenant data model
+//
+// Tenancy rules:
+// - Every tenant-owned entity carries tenantId. Queries MUST always filter by tenant.
+// - Users can belong to multiple tenants with different roles (Membership).
+// - Partners only reach data explicitly shared through PartnerAssignment.
+// - Clients never read LegalNote records (enforced in the permission layer).
+// - Sensitive reads/writes are recorded in AuditLog.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy, identity and access control
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      TenantPlan @default(STARTER)
+  isActive  Boolean  @default(true)
+  // Data retention policy in days; null = keep forever until manual review
+  retentionDays Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizations Organization[]
+  memberships   Membership[]
+  clients       Client[]
+  companies     Company[]
+  cases         Case[]
+  documents     Document[]
+  tasks         Task[]
+  threads       MessageThread[]
+  partners      Partner[]
+  invoices      Invoice[]
+  subscriptions Subscription[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  templates     Template[]
+  aiInteractions AIInteraction[]
+  intakeForms   IntakeForm[]
+  checklists    Checklist[]
+  complianceEvents ComplianceEvent[]
+  riskFlags     RiskFlag[]
+  engagementLetters EngagementLetter[]
+  legalNotes    LegalNote[]
+  attorneyReviews AttorneyReview[]
+  leads         Lead[]
+}
+
+enum TenantPlan {
+  STARTER
+  FIRM
+  GROWTH
+  ENTERPRISE
+  WHITE_LABEL
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  kind      OrganizationKind @default(LAW_FIRM)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  memberships Membership[]
+
+  @@index([tenantId])
+}
+
+enum OrganizationKind {
+  LAW_FIRM
+  CONSULTANCY
+  PARTNER_FIRM
+  PLATFORM
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String?
+  locale       String    @default("en") // en | pt | es
+  // MFA-ready: secret stored, enforcement handled by auth layer
+  mfaSecret    String?
+  mfaEnabled   Boolean   @default(false)
+  isPlatformAdmin Boolean @default(false)
+  lastLoginAt  DateTime?
+  deletedAt    DateTime? // soft delete
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships     Membership[]
+  clientProfiles  Client[]        @relation("ClientUser")
+  documentsOwned  Document[]      @relation("DocumentOwner")
+  tasksAssigned   Task[]          @relation("TaskAssignee")
+  tasksCreated    Task[]          @relation("TaskCreator")
+  messages        Message[]
+  legalNotes      LegalNote[]
+  attorneyReviews AttorneyReview[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  documentReviews DocumentReview[]
+  taskComments    TaskComment[]
+  partnerProfiles Partner[]
+  aiInteractions  AIInteraction[]
+  casesAsAttorney Case[]          @relation("CaseAttorney")
+  casesAsParalegal Case[]         @relation("CaseParalegal")
+  casesAsManager  Case[]          @relation("CaseManager")
+  caseEvents      CaseEvent[]
+}
+
+// A user's participation in a tenant, with a role. A user may hold different
+// roles in different tenants (attorney in one, partner in another).
+model Membership {
+  id             String   @id @default(cuid())
+  tenantId       String
+  organizationId String?
+  userId         String
+  roleId         String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+  role         Role          @relation(fields: [roleId], references: [id])
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+}
+
+model Role {
+  id          String  @id @default(cuid())
+  key         String  @unique // e.g. attorney, paralegal, client, partner
+  name        String
+  description String?
+  isSystem    Boolean @default(true)
+
+  memberships Membership[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String @id @default(cuid())
+  key         String @unique // e.g. case.read, document.approve, legal_note.read
+  description String
+  scope       PermissionScope @default(TENANT)
+
+  roles RolePermission[]
+}
+
+enum PermissionScope {
+  PLATFORM
+  TENANT
+  CASE
+  OWN
+  ASSIGNED
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+// ---------------------------------------------------------------------------
+// CRM
+// ---------------------------------------------------------------------------
+
+model Lead {
+  id             String     @id @default(cuid())
+  tenantId       String
+  name           String
+  email          String?
+  phone          String?
+  source         LeadSource @default(ORGANIC)
+  interest       String?    // visa category key of interest
+  estimatedValue Decimal?   @db.Decimal(12, 2)
+  stage          LeadStage  @default(NEW)
+  score          Int?       // lead score 0-100
+  notes          String?    // commercial notes only - never legal notes
+  assignedToId   String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, stage])
+}
+
+enum LeadSource {
+  ORGANIC
+  ADS
+  REFERRAL
+  PARTNER
+  LANDING_PAGE
+  WHATSAPP
+  EVENT
+  OTHER
+}
+
+enum LeadStage {
+  NEW
+  SCREENING
+  CONSULT_SCHEDULED
+  CONSULT_DONE
+  PROPOSAL_SENT
+  ENGAGED
+  ACTIVE_CASE
+  LOST
+}
+
+// ---------------------------------------------------------------------------
+// Clients, dependents, companies
+// ---------------------------------------------------------------------------
+
+model Client {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?  // portal login, when invited
+  fullName  String
+  email     String?
+  phone     String?
+  nationality String?
+  countryOfResidence String?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant         @relation(fields: [tenantId], references: [id])
+  user       User?          @relation("ClientUser", fields: [userId], references: [id])
+  profile    ClientProfile?
+  dependents Dependent[]
+  cases      Case[]
+  companies  Company[]
+
+  @@index([tenantId])
+}
+
+// Structured data collected once and reused for forms/petitions (form builder)
+model ClientProfile {
+  id       String @id @default(cuid())
+  clientId String @unique
+  // JSON blocks keep the intake flexible: identity, addresses, travelHistory,
+  // visaHistory, education, employment, businesses, investments, riskAnswers
+  data     Json   @default("{}")
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id])
+}
+
+model Dependent {
+  id           String  @id @default(cuid())
+  clientId     String
+  fullName     String
+  relationship DependentRelationship
+  dateOfBirth  DateTime?
+  nationality  String?
+
+  client Client @relation(fields: [clientId], references: [id])
+  caseApplicants CaseApplicant[]
+
+  @@index([clientId])
+}
+
+enum DependentRelationship {
+  SPOUSE
+  CHILD
+  PARENT
+  OTHER
+}
+
+model Company {
+  id        String  @id @default(cuid())
+  tenantId  String
+  clientId  String?
+  name      String
+  country   String?
+  ein       String?
+  role      CompanyRole @default(SPONSOR)
+  data      Json    @default("{}") // ownership, revenue, headcount, entity docs refs
+  createdAt DateTime @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  client Client? @relation(fields: [clientId], references: [id])
+  cases  Case[]
+
+  @@index([tenantId])
+}
+
+enum CompanyRole {
+  SPONSOR
+  FOREIGN_ENTITY
+  US_ENTITY
+  INVESTMENT_TARGET
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Visa engine - categories as configuration, not code
+// ---------------------------------------------------------------------------
+
+model VisaCategory {
+  id          String  @id @default(cuid())
+  key         String  @unique // e.g. E-2, EB-2-NIW
+  name        String
+  description String?
+  audience    String? // typical profile
+  isActive    Boolean @default(true)
+  // Last legal review of this category's content/requirements
+  lastLegalReviewAt DateTime?
+  reviewedByName    String?
+
+  cases            Case[]
+  documentRequirements DocumentRequirement[]
+  intakeQuestions  IntakeQuestion[]
+}
+
+// ---------------------------------------------------------------------------
+// Cases
+// ---------------------------------------------------------------------------
+
+model Case {
+  id                    String     @id @default(cuid())
+  tenantId              String
+  clientId              String
+  visaCategoryId        String
+  companyId             String?
+  caseNumberInternal    String
+  externalReceiptNumber String?
+  externalCaseNumber    String?
+  status                CaseStatus @default(INTAKE_STARTED)
+  priority              CasePriority @default(NORMAL)
+  strategySummary       String?    // approved strategy summary (attorney gated)
+  strategyStatus        ReviewStatus @default(DRAFT)
+  attorneyId            String?
+  paralegalId           String?
+  caseManagerId         String?
+  openedAt              DateTime   @default(now())
+  filedAt               DateTime?
+  decisionAt            DateTime?
+  closedAt              DateTime?
+  nextDeadlineAt        DateTime?
+  nextAction            String?
+  riskLevel             RiskLevel  @default(UNKNOWN)
+  billingStatus         BillingStatus @default(PENDING)
+  deletedAt             DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  client       Client       @relation(fields: [clientId], references: [id])
+  visaCategory VisaCategory @relation(fields: [visaCategoryId], references: [id])
+  company      Company?     @relation(fields: [companyId], references: [id])
+  attorney     User?        @relation("CaseAttorney", fields: [attorneyId], references: [id])
+  paralegal    User?        @relation("CaseParalegal", fields: [paralegalId], references: [id])
+  caseManager  User?        @relation("CaseManager", fields: [caseManagerId], references: [id])
+
+  applicants        CaseApplicant[]
+  events            CaseEvent[]
+  documents         Document[]
+  checklists        Checklist[]
+  tasks             Task[]
+  threads           MessageThread[]
+  legalNotes        LegalNote[]
+  attorneyReviews   AttorneyReview[]
+  partnerAssignments PartnerAssignment[]
+  invoices          Invoice[]
+  engagementLetters EngagementLetter[]
+  riskFlags         RiskFlag[]
+  complianceEvents  ComplianceEvent[]
+  eligibility       EligibilityAssessment[]
+  intakeForms       IntakeForm[]
+
+  @@unique([tenantId, caseNumberInternal])
+  @@index([tenantId, status])
+  @@index([tenantId, attorneyId])
+}
+
+// Multiple applicants/dependents per case
+model CaseApplicant {
+  id          String  @id @default(cuid())
+  caseId      String
+  dependentId String?
+  fullName    String
+  kind        ApplicantKind @default(PRINCIPAL)
+
+  case      Case       @relation(fields: [caseId], references: [id])
+  dependent Dependent? @relation(fields: [dependentId], references: [id])
+
+  @@index([caseId])
+}
+
+enum ApplicantKind {
+  PRINCIPAL
+  SPOUSE
+  DEPENDENT
+}
+
+enum CaseStatus {
+  INTAKE_STARTED
+  INTAKE_COMPLETE
+  INITIAL_REVIEW
+  PROPOSAL_SENT
+  ENGAGEMENT_SIGNED
+  DOCUMENT_COLLECTION
+  EVIDENCE_REVIEW
+  DRAFTING
+  ATTORNEY_REVIEW
+  CLIENT_REVIEW
+  FILING_READY
+  FILED
+  RECEIPT_RECEIVED
+  BIOMETRICS_INTERVIEW
+  RFE_NOID
+  APPROVED
+  DENIED
+  CLOSED
+  POST_APPROVAL_MONITORING
+}
+
+enum CasePriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum RiskLevel {
+  UNKNOWN
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BillingStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  NOT_APPLICABLE
+}
+
+// Immutable timeline of everything that happened in a case
+model CaseEvent {
+  id        String   @id @default(cuid())
+  caseId    String
+  actorId   String?
+  kind      CaseEventKind
+  title     String
+  detail    String?
+  // Client-visible events use plain language; internal ones are hidden from clients
+  clientVisible Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  case  Case  @relation(fields: [caseId], references: [id])
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([caseId, createdAt])
+}
+
+enum CaseEventKind {
+  STATUS_CHANGE
+  DOCUMENT_UPLOADED
+  DOCUMENT_REVIEWED
+  TASK_CREATED
+  TASK_COMPLETED
+  MESSAGE_SENT
+  NOTE_ADDED
+  REVIEW_DECISION
+  PAYMENT
+  FILING
+  OFFICIAL_STATUS
+  RFE_NOID
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Intake wizard & eligibility
+// ---------------------------------------------------------------------------
+
+model IntakeForm {
+  id        String   @id @default(cuid())
+  tenantId  String
+  caseId    String?
+  clientName String?
+  clientEmail String?
+  goal      String?  // visit, study, work, invest, transfer, green card
+  status    IntakeStatus @default(IN_PROGRESS)
+  currentStep Int    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id])
+  case    Case?          @relation(fields: [caseId], references: [id])
+  answers IntakeAnswer[]
+
+  @@index([tenantId, status])
+}
+
+enum IntakeStatus {
+  IN_PROGRESS
+  SUBMITTED
+  UNDER_REVIEW
+  CONVERTED
+  ARCHIVED
+}
+
+model IntakeQuestion {
+  id             String  @id @default(cuid())
+  visaCategoryId String? // null = generic question asked for every intake
+  block          String  // identity | goal | history | family | education | business | investment | recognition | employer | risk
+  key            String  @unique
+  label          String
+  labelPt        String?
+  labelEs        String?
+  fieldType      IntakeFieldType @default(TEXT)
+  options        Json?   // for SELECT / MULTISELECT
+  required       Boolean @default(false)
+  // Conditional logic: show only when another answer matches
+  dependsOnKey   String?
+  dependsOnValue String?
+  sortOrder      Int     @default(0)
+  isActive       Boolean @default(true)
+
+  visaCategory VisaCategory?  @relation(fields: [visaCategoryId], references: [id])
+  answers      IntakeAnswer[]
+}
+
+enum IntakeFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTISELECT
+  COUNTRY
+}
+
+model IntakeAnswer {
+  id         String @id @default(cuid())
+  formId     String
+  questionId String
+  value      Json
+
+  form     IntakeForm     @relation(fields: [formId], references: [id])
+  question IntakeQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([formId, questionId])
+}
+
+// Non-legal readiness output. NEVER a legal opinion: recommendations stay in
+// DRAFT until an attorney reviews them (attorney review gate).
+model EligibilityAssessment {
+  id             String   @id @default(cuid())
+  caseId         String
+  readinessScore Int      // 0-100 readiness (documentation/organization), not approval odds
+  outcome        EligibilityOutcome
+  suggestedRoutes Json    @default("[]") // [{visaKey, rationale}] - draft only
+  reviewStatus   ReviewStatus @default(DRAFT)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id])
+
+  @@index([caseId])
+}
+
+enum EligibilityOutcome {
+  HIGH_FIT_FOR_LEGAL_REVIEW
+  POSSIBLE_ROUTE_TO_EVALUATE
+  INSUFFICIENT_DOCUMENTATION
+  REQUIRES_ATTORNEY_REVIEW
+  ELEVATED_RISK
+}
+
+enum ReviewStatus {
+  DRAFT
+  ATTORNEY_REVIEWED
+  APPROVED
+  REJECTED
+}
+
+// ---------------------------------------------------------------------------
+// Documents
+// ---------------------------------------------------------------------------
+
+model DocumentType {
+  id       String @id @default(cuid())
+  key      String @unique
+  name     String
+  category DocumentCategory @default(OTHER)
+
+  documents    Document[]
+  requirements DocumentRequirement[]
+}
+
+enum DocumentCategory {
+  IDENTITY
+  IMMIGRATION
+  EDUCATION
+  EMPLOYMENT
+  COMPANY
+  FINANCIAL
+  EVIDENCE
+  INVESTMENT
+  FAMILY
+  LEGAL
+  OTHER
+}
+
+// Checklist engine source: which documents a visa category requires
+model DocumentRequirement {
+  id             String  @id @default(cuid())
+  visaCategoryId String
+  documentTypeId String
+  label          String
+  necessity      RequirementNecessity @default(REQUIRED)
+  ownerRole      String  // client | client_company | attorney | partner
+  reviewerRole   String  @default("attorney")
+  condition      String? // human-readable ABAC-ish condition, e.g. applicant_role=executive
+  sensitivity    SensitivityLevel @default(CONFIDENTIAL)
+  guidance       String?
+  ruleVersion    Int     @default(1)
+  approvedByAttorney Boolean @default(false)
+  sortOrder      Int     @default(0)
+
+  visaCategory VisaCategory @relation(fields: [visaCategoryId], references: [id])
+  documentType DocumentType @relation(fields: [documentTypeId], references: [id])
+  checklistItems ChecklistItem[]
+
+  @@index([visaCategoryId])
+}
+
+enum RequirementNecessity {
+  REQUIRED
+  OPTIONAL
+  CONDITIONAL
+}
+
+enum SensitivityLevel {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+  RESTRICTED // criminal, medical, source-of-funds detail
+}
+
+model Document {
+  id              String  @id @default(cuid())
+  tenantId        String
+  caseId          String?
+  ownerUserId     String?
+  documentTypeId  String?
+  filename        String
+  fileUrl         String   // storage key - served only through signed, audited download
+  fileHash        String?
+  mimeType        String
+  size            Int
+  status          DocumentStatus @default(PENDING_REVIEW)
+  sensitivity     SensitivityLevel @default(CONFIDENTIAL)
+  expiresAt       DateTime?
+  rejectionReason String?
+  version         Int      @default(1)
+  previousVersionId String?
+  // After filing, documents are locked against deletion
+  lockedAt        DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  case         Case?         @relation(fields: [caseId], references: [id])
+  owner        User?         @relation("DocumentOwner", fields: [ownerUserId], references: [id])
+  documentType DocumentType? @relation(fields: [documentTypeId], references: [id])
+  reviews      DocumentReview[]
+  checklistItems ChecklistItem[]
+
+  @@index([tenantId, caseId])
+}
+
+enum DocumentStatus {
+  PENDING_REVIEW
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  ARCHIVED
+}
+
+model DocumentReview {
+  id         String   @id @default(cuid())
+  documentId String
+  reviewerId String
+  decision   ReviewDecision
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id])
+  reviewer User     @relation(fields: [reviewerId], references: [id])
+
+  @@index([documentId])
+}
+
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+  NEEDS_CHANGES
+}
+
+// ---------------------------------------------------------------------------
+// Checklist engine (instance per case, generated from requirements)
+// ---------------------------------------------------------------------------
+
+model Checklist {
+  id        String   @id @default(cuid())
+  tenantId  String
+  caseId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id])
+  case   Case            @relation(fields: [caseId], references: [id])
+  items  ChecklistItem[]
+
+  @@index([caseId])
+}
+
+model ChecklistItem {
+  id            String  @id @default(cuid())
+  checklistId   String
+  requirementId String?
+  documentId    String? // fulfilled by this document
+  label         String
+  necessity     RequirementNecessity @default(REQUIRED)
+  ownerRole     String  @default("client")
+  status        ChecklistItemStatus @default(PENDING)
+  dueAt         DateTime?
+  comment       String?
+  sortOrder     Int     @default(0)
+
+  checklist   Checklist            @relation(fields: [checklistId], references: [id])
+  requirement DocumentRequirement? @relation(fields: [requirementId], references: [id])
+  document    Document?            @relation(fields: [documentId], references: [id])
+
+  @@index([checklistId])
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  UPLOADED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  WAIVED
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+model Task {
+  id          String     @id @default(cuid())
+  tenantId    String
+  caseId      String?
+  title       String
+  description String?
+  status      TaskStatus @default(OPEN)
+  priority    CasePriority @default(NORMAL)
+  assigneeId  String?
+  creatorId   String?
+  // Partner-scoped tasks: partner sees ONLY tasks assigned to them
+  partnerAssignmentId String?
+  dueAt       DateTime?
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  case     Case?   @relation(fields: [caseId], references: [id])
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator  User?   @relation("TaskCreator", fields: [creatorId], references: [id])
+  partnerAssignment PartnerAssignment? @relation(fields: [partnerAssignmentId], references: [id])
+  comments TaskComment[]
+
+  @@index([tenantId, status])
+  @@index([caseId])
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELLED
+}
+
+model TaskComment {
+  id       String   @id @default(cuid())
+  taskId   String
+  authorId String
+  body     String
+  createdAt DateTime @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// Messaging (per case, auditable, immutable)
+// ---------------------------------------------------------------------------
+
+model MessageThread {
+  id        String   @id @default(cuid())
+  tenantId  String
+  caseId    String?
+  subject   String
+  // Channel separates operational/commercial/legal/internal/partner messages
+  channel   MessageChannel @default(OPERATIONAL)
+  createdAt DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  case     Case?     @relation(fields: [caseId], references: [id])
+  messages Message[]
+
+  @@index([tenantId, caseId])
+}
+
+enum MessageChannel {
+  OPERATIONAL
+  COMMERCIAL
+  LEGAL
+  INTERNAL   // never visible to clients or partners
+  PARTNER
+}
+
+model Message {
+  id       String   @id @default(cuid())
+  threadId String
+  senderId String
+  body     String
+  // Messages are immutable: no updatedAt, no delete
+  createdAt DateTime @default(now())
+
+  thread MessageThread @relation(fields: [threadId], references: [id])
+  sender User          @relation(fields: [senderId], references: [id])
+
+  @@index([threadId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Legal work product - private to the legal team
+// ---------------------------------------------------------------------------
+
+model LegalNote {
+  id       String   @id @default(cuid())
+  tenantId String
+  caseId   String
+  authorId String
+  body     String
+  // Paralegals may get limited visibility; clients and partners NEVER
+  visibility LegalNoteVisibility @default(LEGAL_TEAM)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  case   Case   @relation(fields: [caseId], references: [id])
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([caseId])
+}
+
+enum LegalNoteVisibility {
+  ATTORNEY_ONLY
+  LEGAL_TEAM
+}
+
+// Attorney approval gates. Nothing final leaves the platform without one.
+model AttorneyReview {
+  id         String   @id @default(cuid())
+  tenantId   String
+  caseId     String
+  reviewerId String
+  gate       ApprovalGate
+  decision   ReviewDecision
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  case     Case   @relation(fields: [caseId], references: [id])
+  reviewer User   @relation(fields: [reviewerId], references: [id])
+
+  @@index([caseId, gate])
+}
+
+enum ApprovalGate {
+  INTAKE_COMPLETE
+  LEGAL_STRATEGY
+  DOCUMENT_COMPLETE
+  PETITION_DRAFT
+  FILING_READY
+  RFE_RESPONSE
+  POST_FILING
+}
+
+// ---------------------------------------------------------------------------
+// Partners - scoped access only
+// ---------------------------------------------------------------------------
+
+model Partner {
+  id       String      @id @default(cuid())
+  tenantId String
+  userId   String?
+  name     String
+  kind     PartnerKind
+  email    String?
+  isActive Boolean     @default(true)
+  createdAt DateTime   @default(now())
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id])
+  user        User?               @relation(fields: [userId], references: [id])
+  assignments PartnerAssignment[]
+
+  @@index([tenantId])
+}
+
+enum PartnerKind {
+  CPA_ACCOUNTANT
+  BUSINESS_PLAN_WRITER
+  TRANSLATOR
+  VALUATION
+  REAL_ESTATE
+  FRANCHISE
+  EB5_PROJECT
+  COMPLIANCE
+  RELOCATION
+  DOCUMENT_COLLECTOR
+  NOTARY_APOSTILLE
+  OTHER
+}
+
+// The ONLY door a partner has into a case: an explicit, scoped, expirable grant
+model PartnerAssignment {
+  id        String   @id @default(cuid())
+  partnerId String
+  caseId    String
+  scope     String   // what the partner is hired to do
+  status    AssignmentStatus @default(ACTIVE)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  partner Partner @relation(fields: [partnerId], references: [id])
+  case    Case    @relation(fields: [caseId], references: [id])
+  tasks   Task[]
+
+  @@index([partnerId])
+  @@index([caseId])
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  REVOKED
+  EXPIRED
+}
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+model EngagementLetter {
+  id        String   @id @default(cuid())
+  tenantId  String
+  caseId    String
+  title     String
+  status    SignatureStatus @default(DRAFT)
+  signedAt  DateTime?
+  documentUrl String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  case   Case   @relation(fields: [caseId], references: [id])
+}
+
+enum SignatureStatus {
+  DRAFT
+  SENT
+  SIGNED
+  DECLINED
+  VOIDED
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+  tenantId  String
+  caseId    String?
+  number    String
+  amount    Decimal  @db.Decimal(12, 2)
+  currency  String   @default("USD")
+  status    InvoiceStatus @default(OPEN)
+  dueAt     DateTime?
+  createdAt DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  case     Case?     @relation(fields: [caseId], references: [id])
+  payments Payment[]
+
+  @@unique([tenantId, number])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  PARTIAL
+  OVERDUE
+  VOID
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  amount    Decimal  @db.Decimal(12, 2)
+  method    String   @default("stripe")
+  reference String?
+  paidAt    DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  plan      TenantPlan
+  status    SubscriptionStatus @default(ACTIVE)
+  seats     Int      @default(1)
+  startedAt DateTime @default(now())
+  endsAt    DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// Risk & compliance
+// ---------------------------------------------------------------------------
+
+model RiskFlag {
+  id       String    @id @default(cuid())
+  tenantId String
+  caseId   String
+  kind     RiskFlagKind
+  severity RiskLevel @default(MEDIUM)
+  note     String?
+  resolvedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  case   Case   @relation(fields: [caseId], references: [id])
+
+  @@index([caseId])
+}
+
+enum RiskFlagKind {
+  OVERSTAY
+  PRIOR_DENIAL
+  DEPORTATION
+  CRIMINAL_HISTORY
+  INADMISSIBILITY
+  FRAUD_INDICATOR
+  DOCUMENT_INCONSISTENCY
+  MISSING_EVIDENCE
+  DEADLINE_RISK
+  OTHER
+}
+
+// Post-approval compliance calendar: renewals, I-94, EAD, investment monitoring
+model ComplianceEvent {
+  id       String   @id @default(cuid())
+  tenantId String
+  caseId   String
+  kind     ComplianceKind
+  title    String
+  dueAt    DateTime
+  status   ComplianceStatus @default(UPCOMING)
+  note     String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  case   Case   @relation(fields: [caseId], references: [id])
+
+  @@index([tenantId, dueAt])
+}
+
+enum ComplianceKind {
+  VISA_RENEWAL
+  STATUS_EXPIRATION
+  I94_EXPIRATION
+  EAD_RENEWAL
+  GREEN_CARD_CONDITION
+  ANNUAL_REPORT
+  TAX_FILING
+  PAYROLL_REVIEW
+  INVESTMENT_MONITORING
+  OTHER
+}
+
+enum ComplianceStatus {
+  UPCOMING
+  DUE_SOON
+  OVERDUE
+  COMPLETED
+  WAIVED
+}
+
+// ---------------------------------------------------------------------------
+// Content, notifications, AI, audit
+// ---------------------------------------------------------------------------
+
+model Template {
+  id       String   @id @default(cuid())
+  tenantId String?  // null = platform-level template
+  key      String
+  name     String
+  kind     TemplateKind @default(MESSAGE)
+  locale   String   @default("en")
+  body     String
+  isActive Boolean  @default(true)
+
+  tenant   Tenant?          @relation(fields: [tenantId], references: [id])
+  versions ContentVersion[]
+
+  @@unique([tenantId, key, locale])
+}
+
+enum TemplateKind {
+  MESSAGE
+  EMAIL
+  DOCUMENT
+  CHECKLIST_GUIDANCE
+  LANDING_CONTENT
+}
+
+model ContentVersion {
+  id         String   @id @default(cuid())
+  templateId String
+  version    Int
+  body       String
+  createdAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id])
+
+  @@unique([templateId, version])
+}
+
+model Notification {
+  id       String   @id @default(cuid())
+  tenantId String
+  userId   String
+  title    String
+  body     String?
+  href     String?
+  readAt   DateTime?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}
+
+// Every AI interaction is stored and auditable. AI output affecting legal
+// routing must go through ReviewStatus before it is shown as anything but draft.
+model AIInteraction {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String?
+  caseId       String?
+  kind         AIInteractionKind
+  prompt       String
+  response     String
+  reviewStatus ReviewStatus @default(DRAFT)
+  blocked      Boolean  @default(false) // guardrail refused (legal-advice ask)
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, caseId])
+}
+
+enum AIInteractionKind {
+  DOCUMENT_SUMMARY
+  DATA_EXTRACTION
+  CHECKLIST_SUGGESTION
+  MESSAGE_DRAFT
+  CASE_SUMMARY
+  INCONSISTENCY_CHECK
+  TRANSLATION
+  ROUTE_SUGGESTION
+  BLOCKED_REQUEST
+  OTHER
+}
+
+// Append-only audit trail: every sensitive read/download/change lands here
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  actorId   String?
+  action    String   // e.g. document.download, case.update, legal_note.read
+  entity    String   // table/entity name
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  actor  User?   @relation(fields: [actorId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([entity, entityId])
+}
